@@ -1,0 +1,8 @@
+cradle:
+  cabal:
+    - path: "./pab"
+      component: "exe:alt-dex-pab"
+    - path: "./src"
+      component: "lib:alt-dex"
+    # - path: "./specs"
+    #   component: "test-suite:dex-swap-test"

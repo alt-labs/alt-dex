@@ -1,0 +1,148 @@
+cabal-version:      2.4
+name:               alt-dex
+version:            0.1.0.0
+
+license:            Apache-2.0
+license-files:      LICENSE
+author:             AltLabs
+maintainer:         igor@altlabs.dev
+
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+
+source-repository this
+    type: git
+    location: https://github.com/alt-labs/alt-dex
+    branch: main
+
+common lang
+    default-language: Haskell2010
+    default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities
+                 -- See Plutus Tx readme
+                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    if flag(defer-plugin-errors)
+        ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+library
+    exposed-modules:
+      AltDex.Contracts
+      -- Plutus.Contracts.Helpers
+      -- Plutus.Contracts.Validators
+      AltDex.Contracts.PubKey
+      AltDex.Contracts.Swap
+      AltDex.Contracts.Monetary
+      AltDex.Contracts.LiquidityPool
+    build-depends:
+      base >= 4.9 && < 5,
+      directory,
+      filepath,
+      aeson,
+      aeson-pretty -any,
+      containers,
+      text,
+      stm -any,
+      unix,
+      lens -any,
+      bytestring,
+      bytestring-encoding,
+      playground-common,
+      plutus-contract,
+      plutus-chain-index,
+      cardano-api,
+      plutus-tx-plugin,
+      plutus-tx,
+      plutus-ledger,
+      playground-common -any,
+      openapi3 -any,
+      prettyprinter
+      -- plutus-use-cases -any
+    hs-source-dirs: src
+    default-language: Haskell2010
+    ghc-options:
+            -- See Plutus Tx readme
+            -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fplugin-opt PlutusTx.Plugin:defer-errors -haddock
+
+-- test-suite alt-dex-test
+--   type: exitcode-stdio-1.0
+--   main-is: Spec.hs
+--   hs-source-dirs: specs
+--   other-modules:
+--     CurrencySpec
+--     SwapSpec
+--   default-language: Haskell2010
+--   default-extensions: ExplicitForAll ScopedTypeVariables
+--                         DeriveGeneric StandaloneDeriving DeriveLift
+--                         GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+--                         DeriveTraversable
+--   ghc-options: -Wall -Wnoncanonical-monad-instances
+--               -Wincomplete-uni-patterns -Wincomplete-record-updates
+--               -Wredundant-constraints -Widentities
+--               -- See Plutus Tx readme
+--               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+--   if flag(defer-plugin-errors)
+--     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+--   build-depends:
+--     plutus-tx -any,
+--     plutus-tx-plugin,
+--     plutus-contract -any,
+--     plutus-ledger -any,
+--     plutus-starter -any,
+--     plutus-chain-index,
+--     cardano-api,
+--     lens -any,
+--     aeson-pretty -any,
+--     freer-simple -any,
+--     prettyprinter -any,
+--     containers,
+--     text
+--   build-depends:
+--     base >=4.9 && <5,
+--     QuickCheck,
+--     tasty -any,
+--     tasty-hunit -any,
+--     tasty-hedgehog >=0.2.0.0,
+--     tasty-quickcheck
+
+executable alt-dex-pab
+  other-modules:
+    SimulatorActions
+  main-is: Main.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    directory,
+    filepath,
+    containers,
+    text -any,
+    lens -any,
+    bytestring -any,
+    bytestring-encoding,
+    stm -any,
+    unix,
+    plutus-contract -any,
+    plutus-chain-index,
+    cardano-api,
+    plutus-pab -any,
+    aeson -any,
+    aeson-pretty -any,
+    freer-simple -any,
+    prettyprinter -any,
+    freer-extras -any,
+    plutus-ledger -any,
+    row-types -any,
+    playground-common -any,
+    alt-dex -any
+    -- plutus-use-cases -any
+
