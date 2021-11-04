@@ -38,6 +38,11 @@ import  Prelude
 import  qualified Prelude as Haskell
 
 import           Text.Printf         (PrintfArg)
+import qualified Wallet.Emulator as Wallet.Emulator.Wallet
+import Wallet.Emulator.Wallet (knownWallets)
+import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
+import AltDex.Contracts.Monetary (SwapCoin)
+import AltDex.Contracts.Base
 
 data AltSwapDatum =
       Factory [LiquidityPool]
@@ -61,11 +66,11 @@ PlutusTx.makeLift ''AltSwapAction
 initContract :: Contract (Maybe (Semigroup.Last Monetary.LimitedSupplyCurrency)) Monetary.CurrencySchema Monetary.CurrencyError ()
 initContract = do
     ownPK <- pubKeyHash <$> ownPubKey
-    cur   <- Monetary.mintContract ownPK [(tn,fromIntegral (length wallets) * amount) | tn <- tokenNames]
+    cur   <- Monetary.mintContract ownPK [(tn,fromIntegral (length knownWallets) * amount) | tn <- tokenNames]
     let cs = Monetary.currencySymbol cur
         v  = mconcat [Value.singleton cs tn amount | tn <- tokenNames]
 
-    forM_ wallets $ \w -> do
+    forM_ knownWallets $ \w -> do
         let pkh = pubKeyHash $ walletPubKey w
         when (pkh /= ownPK) $ do
             tx <- submitTx $ mustPayToPubKey pkh v
@@ -77,8 +82,18 @@ initContract = do
   where
     amount = 1000000
 
-wallets :: [Wallet]
-wallets = [Wallet i | i <- [1 .. 4]]
+-- wallets :: [Wallet]
+-- wallets = knownWallets
 
 tokenNames :: [TokenName]
 tokenNames = ["A", "B", "C", "D"]
+
+data AltSwapContracts =
+      Init
+    | AltSwapStart
+    | AltSwapUser AltSwap
+    deriving (Eq, Ord, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
+
+instance Pretty AltSwapContracts where
+    pretty = viaShow

@@ -19,11 +19,16 @@
 
 module AltDex.Contracts.Monetary(
       LimitedSupplyCurrency(..)
+    , SwapCoin
     , CurrencySchema
     , CurrencyError(..)
     , AsCurrencyError(..)
+    , amountOf
+    , unitValue
+    , mkCoin
     , monetaryPolicy
-    -- * Actions etc
+    , isUnity
+    , valueOf
     , mintContract
     , mintedValue
     , currencySymbol
@@ -99,6 +104,9 @@ PlutusTx.makeLift ''ZTN
 data BON = BON
 PlutusTx.makeIsDataIndexed ''BON [('BON, 0)]
 PlutusTx.makeLift ''BON
+
+-- data AltToken = AltToken
+-- data AltChit = AltChit
 
 -- | A single 'AssetClass'
 newtype Coin a = Coin { swpCoin :: AssetClass }

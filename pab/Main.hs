@@ -20,6 +20,7 @@ import           Control.Monad.Freer                     (Eff, Member, interpret
 import           Control.Monad.Freer.Error               (Error)
 import           Control.Monad.Freer.Extras.Log          (LogMsg)
 import           Control.Monad.IO.Class                  (MonadIO (..))
+import           Data.Default                            (Default (def))
 import qualified Data.Aeson.Encode.Pretty                as JSON
 import           Data.Aeson                              (FromJSON, Result (..), ToJSON, encode, fromJSON)
 import qualified Data.Map.Strict                         as Map
@@ -31,9 +32,11 @@ import           GHC.Generics                            (Generic)
 import           Ledger.Ada                              (adaSymbol, adaToken)
 import           Plutus.Contract
 import qualified AltDex.Contracts.Monetary               as Monetary
-import qualified AltDex.Contracts.Swap                   as Swap
+import qualified AltDex.Contracts.Swap                   as AltSwap
+import           AltDex.Contracts.OffChain
 import           Plutus.PAB.Effects.Contract             (ContractEffect (..))
-import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, SomeBuiltin (..))
+import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, BuiltinHandler (..), HasDefinitions (..),
+                                                          SomeBuiltin (..))
 import qualified Plutus.PAB.Effects.Contract.Builtin     as Builtin
 import           Plutus.PAB.Monitoring.PABLogMsg         (PABMultiAgentMsg)
 import Plutus.PAB.Simulator ( SimulatorEffectHandlers, Simulation )
@@ -56,8 +59,12 @@ import System.Directory                                  (getCurrentDirectory)
 import System.FilePath                                   ((</>))
 import Plutus.PAB.Core                                   (PABEffects, PABAction)
 import Ledger                                            (CurrencySymbol)
+
+import           Ledger.Fee                                     (FeeConfig)
+import qualified Ledger.Index                                   as UtxoIndex
+import           Ledger.TimeSlot                                (SlotConfig (..))
+
 import Ledger.Value                                      (unCurrencySymbol)
-import Plutus.Contracts.Data
 
 import qualified Control.Concurrent.STM          as STM
 import System.IO (hSetBuffering, BufferMode(NoBuffering), stdout)
@@ -68,9 +75,16 @@ import SimulatorActions
 -- import Control.Lens.Indexed (ifor_)
 import Data.Foldable (for_)
 import Data.Map (Map,toList)
+import AltDex.Contracts.Swap (AltSwapContracts)
+
+import Data.Text                  as T
+import Data.Text.Lazy             as LT
+
+walletFilename :: Wallet -> LT.Text
+walletFilename w = LT.take 64 $ Prelude.head $ Prelude.tail (LT.splitOn (LT.pack " ") (LT.pack $ show w))
 
 cidFile :: Wallet -> FilePath
-cidFile w = "./tmp/W" ++ show (getWallet w) ++ ".cid"
+cidFile w = "./tmp/W" ++ LT.unpack(walletFilename w) ++ ".cid"
 
 cidsToFile :: Map Wallet ContractInstanceId -> IO ()
 cidsToFile cids = do
@@ -92,19 +106,19 @@ startDebugServer stop = do
     shutdown <- PAB.Server.startServerDebug
 
     -- UNI: MINT
-    (cidInit, cs) <- aswpMintingContract
+    (cidInit, cs) <- altswapMintingContract
     -- liftIO $ BSL.writeFile "./tmp/symbol.json" $ encode cs
     liftIO $ BS.writeFile "./tmp/symbol" $ BSE.encode BSE.utf8 $ Text.pack $ show cs
 
     -- UNI: START
-    (cidStart, us) <- aswpStartContract
+    (cidStart, us) <- altswapStartContract
 
     -- UNI: USER
-    cids <- aswpUserContract us
+    cids <- altswapUserContract us
     liftIO $ cidsToFile cids
 
     -- UNI: POOL
-    void (aswpLiquidityPoolContract cids cs)
+    void (altswapLiquidityPoolContract cids cs)
 
     _ <- liftIO $ loop stop
     shutdown
@@ -157,23 +171,18 @@ loop stop = do
       threadDelay 1000000
       loop stop
 
-handleAltSwapContract ::
-    ( Member (Error PABError) effs
-    , Member (LogMsg (PABMultiAgentMsg (Builtin AltSwapContracts))) effs
-    )
-    => ContractEffect (Builtin AltSwapContracts)
-    ~> Eff effs
-handleAltSwapContract = Builtin.handleBuiltin getSchema getContract where
+instance HasDefinitions AltSwapContracts where
+  getDefinitions = [AltSwap.Init, AltSwap.AltSwapStart]
   getSchema = \case
-    AltSwapUser _ -> Builtin.endpointsToSchemas @AltSwap.AltSwapUserSchema
-    AltSwapStart  -> Builtin.endpointsToSchemas @AltSwap.AltSwapOwnerSchema
-    Init          -> Builtin.endpointsToSchemas @Empty
+    AltSwap.AltSwapUser _ -> Builtin.endpointsToSchemas @AltSwapUserSchema
+    AltSwap.AltSwapStart  -> Builtin.endpointsToSchemas @AltSwapOwnerSchema
+    AltSwap.Init          -> Builtin.endpointsToSchemas @Empty
   getContract = \case
-    AltSwapUser us -> SomeBuiltin $ AltSwap.userEndpoints us
-    AltSwapStart   -> SomeBuiltin AltSwap.ownerEndpoint
-    Init           -> SomeBuiltin Swap.initContract
+    AltSwap.AltSwapUser altswap -> SomeBuiltin . awaitPromise $ userEndpoints altswap
+    AltSwap.AltSwapStart        -> SomeBuiltin ownerEndpoint
+    AltSwap.Init                -> SomeBuiltin AltSwap.initContract
 
 handlers :: SimulatorEffectHandlers (Builtin AltSwapContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin AltSwapContracts) [] -- [Init, AltSwapStart, AltSwapUser ???]
-    $ interpret handleAltSwapContract
+  Simulator.mkSimulatorHandlers def def
+  $ interpret (contractHandler (Builtin.handleBuiltin @AltSwapContracts))

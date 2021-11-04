@@ -25,8 +25,11 @@ import           Ledger
 import           Ledger.Constraints.OnChain       as Constraints
 import           Ledger.Constraints.TxConstraints as Constraints
 import           Ledger.Value                     (AssetClass (..), symbols)
-import           AltDex.Contracts.LiquidityPool    (calculateAdditionalLiquidity, calculateInitialLiquidity,
-                                                   calculateRemoval, checkSwap, lpTicker)
+import           AltDex.Contracts.Base
+import           AltDex.Contracts.Monetary
+import           AltDex.Contracts.LiquidityPool
+import           AltDex.Contracts.Swap
+
 import qualified PlutusTx
 import           PlutusTx.Prelude
 
@@ -77,7 +80,7 @@ validateSwap LiquidityPool{..} c ctx =
     noAltSwapMinting :: Bool
     noAltSwapMinting =
       let
-        AssetClass (cs, _) = unCoin c
+        AssetClass (cs, _) = swpCoin c
         minted             = txInfoMint info
       in
         all (/= cs) $ symbols minted
@@ -101,15 +104,15 @@ validateCreate :: AltSwap
                -> ScriptContext
                -> Bool
 validateCreate AltSwap{..} c lps lp@LiquidityPool{..} ctx =
-    traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) usCoin)          && -- 1.
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue usCoin) && -- 2.
-    (unCoin lpCoinA /= unCoin lpCoinB)                                                                  && -- 3.
-    all (/= lp) lps                                                                                     && -- 4.
-    isUnity minted c                                                                                    && -- 5.
-    (amountOf minted liquidityCoin' == liquidity)                                                       && -- 6.
-    (outA > 0)                                                                                          && -- 7.
-    (outB > 0)                                                                                          && -- 8.
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                       -- 9.
+    traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) aswpCoin)          && -- 1.
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue aswpCoin) && -- 2.
+    (swpCoin lpCoinA /= swpCoin lpCoinB)                                                                  && -- 3.
+    all (/= lp) lps                                                                                       && -- 4.
+    isUnity minted c                                                                                      && -- 5.
+    (amountOf minted liquidityCoin' == liquidity)                                                         && -- 6.
+    (outA > 0)                                                                                            && -- 7.
+    (outB > 0)                                                                                            && -- 8.
+    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                         -- 9.
         valueOf lpCoinA outA <> valueOf lpCoinB outB <> unitValue c)
   where
     poolOutput :: TxOut
@@ -125,15 +128,15 @@ validateCreate AltSwap{..} c lps lp@LiquidityPool{..} ctx =
     minted = txInfoMint $ scriptContextTxInfo ctx
 
     liquidityCoin' :: Coin Liquidity
-    liquidityCoin' = let AssetClass (cs,_) = unCoin c in mkCoin cs $ lpTicker lp
+    liquidityCoin' = let AssetClass (cs,_) = swpCoin c in mkCoin cs $ lpTicker lp
 
 {-# INLINABLE validateCloseFactory #-}
 validateCloseFactory :: AltSwap -> Coin PoolState -> [LiquidityPool] -> ScriptContext -> Bool
 validateCloseFactory AltSwap{..} c lps ctx =
-    traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) usCoin)                          && -- 1.
+    traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) aswpCoin)                          && -- 1.
     traceIfFalse "wrong mint value"        (txInfoMint info == negate (unitValue c <>  valueOf lC (snd lpLiquidity))) && -- 2.
     traceIfFalse "factory output wrong"                                                                                    -- 3.
-        (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ unitValue usCoin)
+        (Constraints.checkOwnOutputConstraint ctx $ OutputConstraint (Factory $ filter (/= fst lpLiquidity) lps) $ unitValue aswpCoin)
   where
     info :: TxInfo
     info = scriptContextTxInfo ctx
@@ -152,7 +155,7 @@ validateCloseFactory AltSwap{..} c lps ctx =
         Just h  -> findPoolDatum info h
 
     lC :: Coin Liquidity
-    lC  = let AssetClass (cs, _) = unCoin c in mkCoin cs (lpTicker $ fst lpLiquidity)
+    lC  = let AssetClass (cs, _) = swpCoin c in mkCoin cs (lpTicker $ fst lpLiquidity)
 
 {-# INLINABLE validateClosePool #-}
 validateClosePool :: AltSwap -> ScriptContext -> Bool
@@ -164,7 +167,7 @@ validateClosePool us ctx = hasFactoryInput
     hasFactoryInput :: Bool
     hasFactoryInput =
         traceIfFalse "AltSwap factory input expected" $
-        isUnity (valueSpent info) (usCoin us)
+        isUnity (valueSpent info) (aswpCoin us)
 
 {-# INLINABLE validateRemove #-}
 validateRemove :: Coin PoolState -> LiquidityPool -> Amount Liquidity -> ScriptContext -> Bool
@@ -198,7 +201,7 @@ validateRemove c lp liquidity ctx =
         Just h  -> findPoolDatum info h
 
     lC :: Coin Liquidity
-    lC = let AssetClass (cs, _) = unCoin c in mkCoin cs (lpTicker lp)
+    lC = let AssetClass (cs, _) = swpCoin c in mkCoin cs (lpTicker lp)
 
     diff         = liquidity - snd lpLiquidity
     inA          = amountOf inVal $ lpCoinA lp
@@ -206,7 +209,7 @@ validateRemove c lp liquidity ctx =
     (outA, outB) = calculateRemoval inA inB liquidity diff
 
 {-# INLINABLE validateAdd #-}
--- | See 'Plutus.Contracts.AltSwap.OffChain.add'.
+-- | See 'AltDex.Contracts.OffChain.add'.
 validateAdd :: Coin PoolState -> LiquidityPool -> Amount Liquidity -> ScriptContext -> Bool
 validateAdd c lp liquidity ctx =
     traceIfFalse "pool stake token missing from input"          (isUnity inVal c)                                                    &&
@@ -249,7 +252,7 @@ validateAdd c lp liquidity ctx =
     bC = lpCoinB lp
 
     lC :: Coin Liquidity
-    lC = let AssetClass (cs, _) = unCoin c in mkCoin cs $ lpTicker lp
+    lC = let AssetClass (cs, _) = swpCoin c in mkCoin cs $ lpTicker lp
 
 {-# INLINABLE findPoolDatum #-}
 findPoolDatum :: TxInfo -> DatumHash -> (LiquidityPool, Amount Liquidity)
@@ -280,7 +283,7 @@ validateLiquidityMinting AltSwap{..} tn _ ctx
   = case [ i
          | i <- txInfoInputs $ scriptContextTxInfo ctx
          , let v = valueWithin i
-         , isUnity v usCoin || isUnity v lpC
+         , isUnity v aswpCoin || isUnity v lpC
          ] of
     [_]    -> True
     [_, _] -> True

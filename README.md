@@ -64,10 +64,10 @@ cabal update
 
 ```bash
 # Build
-cabal build plutus-starter-pab
+cabal build exe:alt-dex-pab
 
 # Run PAB (Servant Webserver API) by default on port 8080
-cabal exec -- plutus-starter-pab
+cabal exec -- exe:alt-dex-pab
 ```
 
 ### Verify PAB is operating properly

@@ -17,11 +17,13 @@
 
 module AltDex.Contracts.LiquidityPool
    (
-    LiquidityPool (..), Liquidity
+    LiquidityPool (..), Liquidity,
+    calculateAdditionalLiquidity, calculateInitialLiquidity,
+    calculateRemoval, checkSwap, lpTicker, PoolState
   ) where
 
 import qualified Data.OpenApi.Schema as OpenApi
-import Ledger ( TokenName )
+import Ledger    ( TokenName, CurrencySymbol, scriptCurrencySymbol)
 import           Ledger.Value        (TokenName (..), AssetClass (..), assetClass, assetClassValue, assetClassValueOf,  unAssetClass, unCurrencySymbol)
 import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
 import qualified PlutusTx
@@ -30,6 +32,7 @@ import qualified Prelude             as Haskell
 import           Text.Printf         (PrintfArg)
 import           AltDex.Contracts.Monetary
 import           PlutusTx.Sqrt
+import           AltDex.Contracts.Base
 
 -- | Pool-state coin token
 data PoolState = PoolState

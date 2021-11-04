@@ -34,13 +34,14 @@ common lang
 
 library
     exposed-modules:
-      AltDex.Contracts
-      -- Plutus.Contracts.Helpers
-      -- Plutus.Contracts.Validators
       AltDex.Contracts.PubKey
-      AltDex.Contracts.Swap
+      AltDex.Contracts.Base
+      AltDex.Contracts.Common
       AltDex.Contracts.Monetary
       AltDex.Contracts.LiquidityPool
+      AltDex.Contracts.Swap
+      AltDex.Contracts.OffChain
+      AltDex.Contracts.OnChain
     build-depends:
       base >= 4.9 && < 5,
       directory,
@@ -143,6 +144,7 @@ executable alt-dex-pab
     plutus-ledger -any,
     row-types -any,
     playground-common -any,
+    data-default -any,
     alt-dex -any
     -- plutus-use-cases -any
 

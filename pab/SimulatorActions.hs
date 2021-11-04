@@ -33,8 +33,11 @@ import           Data.Text                               (Text)
 import           GHC.Generics                            (Generic)
 import           Ledger.Ada                              (adaSymbol, adaToken)
 import           Plutus.Contract
+import           AltDex.Contracts.Base
 import qualified AltDex.Contracts.Monetary               as Monetary
 import qualified AltDex.Contracts.Swap                   as AltSwap
+import           AltDex.Contracts.Swap                   (AltSwapContracts (..))
+import           AltDex.Contracts.OffChain               (UserContractState (..), CreateParams (..))
 import           Plutus.PAB.Effects.Contract             (ContractEffect (..))
 import           Plutus.PAB.Effects.Contract.Builtin     (Builtin, SomeBuiltin (..))
 import qualified Plutus.PAB.Effects.Contract.Builtin     as Builtin
@@ -46,7 +49,7 @@ import qualified Plutus.PAB.Webserver.Server             as PAB.Server
 import qualified Plutus.PAB.Webserver.Handler            as Webserver
 import           Plutus.PAB.Webserver.Types              (ContractSignatureResponse, FullReport)
 import           Prelude                                 hiding (init)
-import           Wallet.Emulator.Types                   (Wallet (..))
+import           Wallet.Emulator.Types                   (Wallet (..), knownWallets, knownWallet)
 import qualified Data.ByteString.Lazy                    as BSL
 import           Data.Text.Prettyprint.Doc
 import qualified Data.Text                                  as Text
@@ -57,7 +60,6 @@ import System.Directory                                  (getCurrentDirectory)
 import System.FilePath                                   ((</>))
 import Plutus.PAB.Core                                   (PABEffects, PABAction)
 import Ledger                                            (CurrencySymbol)
-import Plutus.Contracts.Data
 
 import qualified Control.Concurrent.STM          as STM
 import System.IO (hSetBuffering, BufferMode(NoBuffering), stdout)
@@ -70,9 +72,9 @@ altswapMintingContract :: Eff (PABEffects
      (Simulator.SimulatorState (Builtin AltSwapContracts)))
   (ContractInstanceId, CurrencySymbol)
 altswapMintingContract = do
-    cidInit  <- Simulator.activateContract (Wallet 1) Init
+    cidInit  <- Simulator.activateContract (knownWallet 1) Init
     cs       <- flip Simulator.waitForState cidInit $ \json -> case fromJSON json of
-                    Success (Just (Semigroup.Last cur)) -> Just $ Currency.currencySymbol cur
+                    Success (Just (Semigroup.Last cur)) -> Just $ Monetary.currencySymbol cur
                     _                                   -> Nothing
     _        <- Simulator.waitUntilFinished cidInit
 
@@ -83,10 +85,10 @@ altswapMintingContract = do
 altswapStartContract :: Eff (PABEffects
      (Builtin AltSwapContracts)
      (Simulator.SimulatorState (Builtin AltSwapContracts)))
-  (ContractInstanceId, AltSwap.AltSwap)
+  (ContractInstanceId, AltSwap)
 altswapStartContract = do
-    cidStart <- Simulator.activateContract (Wallet 1) AltSwapStart
-    us       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text AltSwap.AltSwap))) of
+    cidStart <- Simulator.activateContract (knownWallet 1) AltSwapStart
+    us       <- flip Simulator.waitForState cidStart $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text AltSwap))) of
                     Success (Monoid.Last (Just (Right us))) -> Just us
                     _                                       -> Nothing
     Simulator.logString @(Builtin AltSwapContracts) $ "AltSwap instance created: " ++ show us
@@ -94,30 +96,30 @@ altswapStartContract = do
     pure (cidStart, us)
 
 altswapUserContract us =
-    fmap Map.fromList $ forM wallets $ \w -> do
+    fmap Map.fromList $ forM knownWallets $ \w -> do
     cid <- Simulator.activateContract w $ AltSwapUser us
     Simulator.logString @(Builtin AltSwapContracts) $ "AltSwap user contract started for " ++ show w
     Simulator.waitForEndpoint cid "funds"
     _ <- Simulator.callEndpointOnInstance cid "funds" ()
-    v <- flip Simulator.waitForState cid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text AltSwap.UserContractState))) of
-            Success (Monoid.Last (Just (Right (AltSwap.Funds v)))) -> Just v
+    v <- flip Simulator.waitForState cid $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text UserContractState))) of
+            Success (Monoid.Last (Just (Right (Funds v)))) -> Just v
             _                                                      -> Nothing
     Simulator.logString @(Builtin AltSwapContracts) $ "initial funds in wallet " ++ show w ++ ": " ++ show v
     return (w, cid)
 
 altswapLiquidityPoolContract cids cs = do
-    let coins = Map.fromList [(tn, AltSwap.mkCoin cs tn) | tn <- tokenNames]
-        ada   = AltSwap.mkCoin adaSymbol adaToken
+    let coins = Map.fromList [(tn, Monetary.mkCoin cs tn) | tn <- AltSwap.tokenNames]
+        ada   = Monetary.mkCoin adaSymbol adaToken
 
     let cp = CreateParams ada (coins Map.! "A") 100000 500000
     Simulator.logString @(Builtin AltSwapContracts) $ "creating liquidity pool: " ++ show (encode cp)
-    -- _  <- Simulator.callEndpointOnInstance (cids Map.! Wallet 2) "create" cp
-    let cid2 = cids Map.! Wallet 2
+    -- _  <- Simulator.callEndpointOnInstance (cids Map.! knownWallet 2) "create" cp
+    let cid2 = cids Map.! knownWallet 2
     Simulator.waitForEndpoint cid2 "create"
 
     _  <- Simulator.callEndpointOnInstance cid2 "create" cp
-    flip Simulator.waitForState (cids Map.! Wallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text AltSwap.UserContractState))) of
-        Success (Monoid.Last (Just (Right AltSwap.Created))) -> Just ()
+    flip Simulator.waitForState (cids Map.! knownWallet 2) $ \json -> case (fromJSON json :: Result (Monoid.Last (Either Text UserContractState))) of
+        Success (Monoid.Last (Just (Right Created))) -> Just ()
         _                                                    -> Nothing
 
     Simulator.logString @(Builtin AltSwapContracts) "liquidity pool created"
