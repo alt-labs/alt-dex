@@ -18,6 +18,9 @@ source-repository this
     location: https://github.com/alt-labs/alt-dex
     branch: main
 
+common base
+  build-depends: base >= 4.14 && < 4.15
+
 common lang
     default-language: Haskell2010
     default-extensions: ExplicitForAll ScopedTypeVariables
@@ -42,6 +45,8 @@ library
       AltDex.Contracts.Swap
       AltDex.Contracts.OffChain
       AltDex.Contracts.OnChain
+      AltDex.Contracts.Serialise
+      AltDex.WalletLog
     build-depends:
       base >= 4.9 && < 5,
       directory,
@@ -58,13 +63,16 @@ library
       playground-common,
       plutus-contract,
       plutus-chain-index,
-      cardano-api,
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
       playground-common -any,
       openapi3 -any,
-      prettyprinter
+      prettyprinter,
+      serialise -any,
+      cardano-ledger-alonzo -any,
+      plutus-ledger-api -any,
+      cardano-api -any
       -- plutus-use-cases -any
     hs-source-dirs: src
     default-language: Haskell2010
@@ -148,3 +156,33 @@ executable alt-dex-pab
     alt-dex -any
     -- plutus-use-cases -any
 
+-- executable alt-dex-purple
+--   import:               base, lang
+--   hs-source-dirs:       app
+--   main-is:              create-pool.hs
+--   ghc-options:          -threaded -rtsopts "-with-rtsopts=-T"
+--   build-depends:        aeson
+--                       , cardano-api
+--                       , cardano-ledger-alonzo
+--                       , plutus-ledger
+--                       , plutus-ledger-api
+--                       , plutus-tx
+--                       , bytestring
+--                       , serialise -any
+--                       , alt-dex -any
+
+-- executable altdex-cli
+--   import:               base, lang
+--   hs-source-dirs:       cli
+--   main-is:              main.hs
+--   ghc-options:          -threaded -rtsopts "-with-rtsopts=-T"
+--   build-depends:        aeson
+--                       , cardano-api
+--                       , wai -any
+--                       , cardano-ledger-alonzo
+--                       , plutus-ledger
+--                       , plutus-ledger-api
+--                       , plutus-tx
+--                       , bytestring
+--                       , serialise -any
+--                       , alt-dex -any

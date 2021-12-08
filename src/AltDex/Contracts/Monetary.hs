@@ -15,6 +15,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
 module AltDex.Contracts.Monetary(
@@ -34,13 +35,14 @@ module AltDex.Contracts.Monetary(
     , currencySymbol
     , SimpleMPS(..)
     , mintCurrency
+    , mkCurrency
     , Coin (..), Amount (..),
     A, B, BON, DKT, ZTN, ZLT
     ) where
 
 import qualified Data.OpenApi.Schema as OpenApi
 import           Control.Lens
-
+import qualified Data.Aeson as JSON
 import           PlutusTx.Prelude       hiding (Monoid (..), Semigroup (..))
 import           Plutus.Contract        as Contract
 import           Plutus.Contract.Wallet (getUnspentOutput)
@@ -73,7 +75,23 @@ import qualified Prelude                as Haskell
 import           Schema                 (ToSchema)
 
 import           Text.Printf         (PrintfArg)
-import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
+
+import           Plutus.Trace.Emulator  as Emulator
+import           Playground.Contract    (FromJSON, Generic, ToJSON, printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
+import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
+import           Playground.Types       (KnownCurrency (..))
+
+import           Wallet.Emulator.Wallet
+
+import           Plutus.Trace.Emulator  (EmulatorRuntimeError (GenericError), EmulatorTrace)
+import qualified Plutus.Trace.Emulator  as Emulator
+
+import Control.Monad (forever)
+
+import           Cardano.Api.Shelley (fromPlutusData, toAlonzoData, writeFileTextEnvelope, displayError, scriptDataToJson, ScriptDataJsonSchema(..))
+
+import qualified Cardano.Ledger.Alonzo.Data as Alonzo
+import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- | SwapCoin
 data SwapCoin = SwapCoin deriving (Haskell.Show, Haskell.Eq, Generic)
@@ -117,14 +135,16 @@ PlutusTx.makeLift ''Coin
 
 data LimitedSupplyCurrency = LimitedSupplyCurrency
   {
-    cRefTxOut :: (TxId, Integer)
+    cRefTxOut :: (Ledger.TxId, Integer)
   , cCount    :: AssocMap.Map TokenName Integer
   }
   deriving stock (Generic, Haskell.Show, Haskell.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
 PlutusTx.makeLift ''LimitedSupplyCurrency
+PlutusTx.unstableMakeIsData ''LimitedSupplyCurrency
 
+{-# INLINABLE validate #-}
 validate :: LimitedSupplyCurrency -> () -> V.ScriptContext -> Bool
 validate c@(LimitedSupplyCurrency (refHash, refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
   forgeOK && txOutputSpent
@@ -180,10 +200,7 @@ instance AsContractError CurrencyError where
 --   If @k == 0@ then no value is minted. A one-shot minting policy
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
-mintContract
-    :: forall w s e.
-    ( AsCurrencyError e
-    )
+mintContract :: forall w s e. ( AsCurrencyError e)
     => PubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e LimitedSupplyCurrency
@@ -215,9 +232,10 @@ type CurrencySchema =
 
 -- | Use 'mintContract' to create the currency specified by a 'SimpleMPS'
 mintCurrency
-    :: Promise (Maybe (Last LimitedSupplyCurrency)) CurrencySchema CurrencyError LimitedSupplyCurrency
+    :: Promise (Maybe (Last LimitedSupplyCurrency))
+    CurrencySchema CurrencyError LimitedSupplyCurrency
 mintCurrency = endpoint @"Create native token" $ \SimpleMPS{tokenName, amount} -> do
-    ownPK <- pubKeyHash <$> ownPubKey
+    ownPK <- pubKeyHash <$> Contract.ownPubKey
     cur <- mintContract ownPK [(tokenName, amount)]
     tell (Just (Last cur))
     pure cur
@@ -251,3 +269,46 @@ amountOf v = Amount . assetClassValueOf v . swpCoin
 {-# INLINABLE mkCoin #-}
 mkCoin:: CurrencySymbol -> TokenName -> Coin a
 mkCoin c = Coin . assetClass c
+
+
+-- mintEndpoints :: Contract () CurrencySchema CurrencyError ()
+-- mintEndpoints = mint' >> endpoints
+--   where
+--     mint' = endpoint @"Create native token" >>= mintCurrency
+-- mintEndpoints :: Contract () CurrencySchema CurrencyError LimitedSupplyCurrency
+-- mintEndpoints = forever
+--             $ handleError logError
+--             $ awaitPromise
+--             $ endpoint @"Create native token" $ \mp ->  mintCurrency mp
+
+-- test :: Haskell.IO ()
+-- test = runEmulatorTraceIO $ do
+--     let tn = "ABC"
+--     h1 <- activateContractWallet (knownWallet 1) mintEndpoints
+--     h2 <- activateContractWallet (knownWallet 2) mintEndpoints
+--     callEndpoint @"Create native token" h1 $ SimpleMPS
+--         { tokenName = tn
+--         , amount    = 555
+--         }
+--     callEndpoint @"Create native token" h2 $ SimpleMPS
+--         { tokenName = tn
+--         , amount    = 444
+--         }
+--     void $ Emulator.waitNSlots 1
+--     callEndpoint @"Create native token" h1 $ SimpleMPS
+--         { tokenName = tn
+--         , amount    = -222
+--         }
+--     void $ Emulator.waitNSlots 1
+
+
+-- mintingTrace :: EmulatorTrace ()
+-- mintingTrace = do
+--     cidInit <- Emulator.activateContract (knownWallet 1) setupTokens "init"
+--     _ <- Emulator.waitNSlots 5
+--     cs <- Emulator.observableState cidInit >>= \case
+--                 Just (Semigroup.Last cur) -> pure (Currency.currencySymbol cur)
+--                 _                         -> throwError $ GenericError "failed to create currency"
+--     let coins = Map.fromList [(tn, Types.mkCoin cs tn) | tn <- tokenNames]
+--         ada   = Types.mkCoin adaSymbol adaToken
+-- ``

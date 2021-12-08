@@ -77,7 +77,7 @@ calculateAdditionalLiquidity oldA' oldB' liquidity delA' delB' =
     Exactly x       -> Amount x - liquidity
     Approximately x -> Amount x - liquidity
   where
-    ratio = (swpAmount (liquidity * liquidity * newProd)) % swpAmount oldProd
+    ratio = swpAmount (liquidity * liquidity * newProd) % swpAmount oldProd
 
     -- Unwrap, as we're combining terms
     oldA = swpAmount oldA'

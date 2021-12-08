@@ -37,6 +37,5 @@ PlutusTx.makeIsDataIndexed ''AltSwap [('AltSwap, 0)]
 PlutusTx.makeLift ''AltSwap
 
 aswpTokenName, poolStateTokenName :: TokenName
-aswpTokenName = "AltSwap"
-poolStateTokenName = "LP_S_TOK"
-
+aswpTokenName = "SWP"
+poolStateTokenName = "LPS"

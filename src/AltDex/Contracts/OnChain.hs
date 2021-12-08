@@ -42,7 +42,7 @@ valueWithin :: TxInInfo -> Value
 valueWithin = txOutValue . txInInfoResolved
 
 {-# INLINABLE validateSwap #-}
--- | We check the swap is valid through 'checkSwap', and otherwise just make
+-- | We check the swap is valid through 'validateSwap', and otherwise just make
 -- sure that the pool token is passed through.
 validateSwap :: LiquidityPool -> Coin PoolState -> ScriptContext -> Bool
 validateSwap LiquidityPool{..} c ctx =
@@ -94,7 +94,7 @@ validateSwap LiquidityPool{..} c ctx =
 --  4. The pool can't already exist,
 --  5. The pool needs a single value as output,
 --  6. The liquidity amount needs to be as-determined by 'calculateInitialLiquidity'
---      (i.e. the amount from the AltSwap V2 paper).
+--      (i.e. the amount from the Uniswap V2 paper).
 --  7,8. We need to be exchanging more than zero of each kind of coin.
 --  9. It should output a pool with the determined properties
 validateCreate :: AltSwap
@@ -269,13 +269,13 @@ mkAltSwapValidator :: AltSwap
                    -> AltSwapAction
                    -> ScriptContext
                    -> Bool
-mkAltSwapValidator us c (Factory lps) (Create lp) ctx = validateCreate us c lps lp ctx
-mkAltSwapValidator _  c (Pool lp _)   Swap        ctx = validateSwap lp c ctx
-mkAltSwapValidator us c (Factory lps) Close       ctx = validateCloseFactory us c lps ctx
-mkAltSwapValidator us _ (Pool _  _)   Close       ctx = validateClosePool us ctx
-mkAltSwapValidator _  c (Pool lp a)   Remove      ctx = validateRemove c lp a ctx
-mkAltSwapValidator _  c (Pool lp a)   Add         ctx = validateAdd c lp a ctx
-mkAltSwapValidator _  _ _             _           _   = False
+mkAltSwapValidator altswap coin (Factory lps) (Create lp) ctx = validateCreate altswap coin lps lp ctx
+mkAltSwapValidator _       coin (Pool lp _)   Swap        ctx = validateSwap lp coin ctx
+mkAltSwapValidator altswap coin (Factory lps) Close       ctx = validateCloseFactory altswap coin lps ctx
+mkAltSwapValidator altswap _    (Pool _  _)   Close       ctx = validateClosePool altswap ctx
+mkAltSwapValidator _       coin (Pool lp a)   Remove      ctx = validateRemove coin lp a ctx
+mkAltSwapValidator _       coin (Pool lp a)   Add         ctx = validateAdd coin lp a ctx
+mkAltSwapValidator _       _  _               _           _   = False
 
 {-# INLINABLE validateLiquidityMinting #-}
 validateLiquidityMinting :: AltSwap -> TokenName -> () -> ScriptContext -> Bool

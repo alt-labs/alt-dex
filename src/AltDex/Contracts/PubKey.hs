@@ -62,9 +62,7 @@ instance AsContractError PubKeyError where
 -- | Lock some funds in a 'PayToPubKey' contract, returning the output's address
 --   and a 'TxIn' transaction input that can spend it.
 pubKeyContract
-    :: forall w s e.
-    ( AsPubKeyError e
-    )
+    :: forall w s e. (AsPubKeyError e)
     => PubKeyHash
     -> Value
     -> Contract w s e (TxOutRef, Maybe ChainIndexTxOut, TypedValidator PubKeyContract)
