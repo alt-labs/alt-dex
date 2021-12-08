@@ -81,7 +81,7 @@ import Data.Text                  as T
 import Data.Text.Lazy             as LT
 
 walletFilename :: Wallet -> LT.Text
-walletFilename w = LT.take 64 $ Prelude.head $ Prelude.tail (LT.splitOn (LT.pack " ") (LT.pack $ show w))
+walletFilename w = LT.take 48 $ Prelude.head $ Prelude.tail (LT.splitOn (LT.pack " ") (LT.pack $ show w))
 
 cidFile :: Wallet -> FilePath
 cidFile w = "./tmp/W" ++ LT.unpack(walletFilename w) ++ ".cid"
@@ -105,19 +105,18 @@ startDebugServer stop = do
 
     shutdown <- PAB.Server.startServerDebug
 
-    -- UNI: MINT
+    -- MINT
     (cidInit, cs) <- altswapMintingContract
-    -- liftIO $ BSL.writeFile "./tmp/symbol.json" $ encode cs
     liftIO $ BS.writeFile "./tmp/symbol" $ BSE.encode BSE.utf8 $ Text.pack $ show cs
 
-    -- UNI: START
+    -- START
     (cidStart, us) <- altswapStartContract
 
-    -- UNI: USER
+    -- USER
     cids <- altswapUserContract us
     liftIO $ cidsToFile cids
 
-    -- UNI: POOL
+    -- POOL
     void (altswapLiquidityPoolContract cids cs)
 
     _ <- liftIO $ loop stop
