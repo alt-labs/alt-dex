@@ -17,7 +17,7 @@
 {-# LANGUAGE TypeOperators              #-}
 
 module AltDex.Contracts.OffChain
-    ( liquidityCoin
+    ( liquidityCoin, poolStateCoin, liquidityCurrency, liquidityPolicy
     , CreateParams (..)
     , SwapParams (..)
     , CloseParams (..)
@@ -26,7 +26,9 @@ module AltDex.Contracts.OffChain
     , AltSwapUserSchema, UserContractState (..)
     , AltSwapOwnerSchema
     , start, create, add, remove, close, swap, pools
-    , ownerEndpoint, userEndpoints
+    , ownerEndpoint, userEndpoints,
+    aswpScript, aswp, aswpInstance,
+    AltXChange (..)
     ) where
 
 import           Control.Lens                     (view)
@@ -54,6 +56,8 @@ import           Prelude                          as Haskell (Int, Semigroup (..
                                                               (^))
 import           Text.Printf                      (printf)
 import qualified Playground.Types as Mnetary
+import qualified AltDex.WalletLog as WLog
+type DexUserState = WLog.WalletLog (Either Text UserContractState)
 
 data AltXChange
 instance Scripts.ValidatorTypes AltXChange where
@@ -199,13 +203,17 @@ data AddParams = AddParams
 start :: forall w s. Contract w s Text AltSwap
 start = do
     pkh <- pubKeyHash <$> ownPubKey
+
+    -- currency symbol of the NFT SWP
     cs  <- fmap Monetary.currencySymbol $
            mapError (pack . show @Monetary.CurrencyError) $
            Monetary.mintContract pkh [(aswpTokenName, 1)]
-    let c    = Monetary.mkCoin cs aswpTokenName
+
+    let c       = Monetary.mkCoin cs aswpTokenName
         altswap = aswp cs
-        inst = aswpInstance altswap
-        tx   = mustPayToTheScript (Factory []) $ Monetary.unitValue c
+        inst    = aswpInstance altswap
+        tx      = mustPayToTheScript (Factory []) $ Monetary.unitValue c
+
     ledgerTx <- submitTxConstraints inst tx
     void $ awaitTxConfirmed $ txId ledgerTx
     void $ waitNSlots 1
@@ -218,9 +226,12 @@ create :: forall w s. AltSwap -> CreateParams -> Contract w s Text ()
 create altswap CreateParams{..} = do
     when (Monetary.swpCoin cpCoinA == Monetary.swpCoin cpCoinB) $ throwError "coins must be different"
     when (cpAmountA <= 0 || cpAmountB <= 0) $ throwError "amounts must be positive"
+
     (oref, o, lps) <- findAltSwapFactory altswap
+
     let liquidity = calculateInitialLiquidity cpAmountA cpAmountB
         lp        = LiquidityPool {lpCoinA = cpCoinA, lpCoinB = cpCoinB}
+
     let swpInst  = aswpInstance altswap
         swpScript = aswpScript altswap
         swpDat1  = Factory $ lp : lps
@@ -571,3 +582,24 @@ userEndpoints altswap =
         tell $ Last $ Just $ case e of
             Left err -> Left err
             Right () -> Right Stopped
+
+-- userEndpoints' :: Contract UserContractState AltSwapUserSchema Void ()
+-- userEndpoints' =
+--     selectList
+--     [
+--       create',
+--     ] >> userEndpoints
+--     where
+--       f :: forall l a p.
+--           (HasEndpoint l p AltSwapUserSchema, FromJSON p) =>
+--       f _ getWalletLogKey g c = handleEndpoint @l $ \p -> do
+--         let wlkey = either (const "ERR" ) getWalletLogKey p
+--         e <- either (pure . Left) (runError @_ @_ @Text . c) p
+
+--         case e of
+--           Left err -> do
+--             logInfo @Text ("Error during calling endpoint:" <> err)
+--             tell $ WLog.append wlkey . Left $ err
+--           Right a
+--             | symbolVal (Proxy @l) GHC.Classes./= "clearState" ->
+--               tell $ WLog.append wlkey . Right . g $ a
