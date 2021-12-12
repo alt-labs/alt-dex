@@ -19,7 +19,12 @@ source-repository this
     branch: main
 
 common base
-  build-depends: base >= 4.14 && < 4.15
+  build-depends:
+    base >= 4.14 && < 4.15,
+    purescript-bridge,
+    freer-simple,
+    freer-extras,
+    data-default
 
 common lang
     default-language: Haskell2010
@@ -27,15 +32,56 @@ common lang
                         DeriveGeneric StandaloneDeriving DeriveLift
                         GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
                         DeriveTraversable
-    ghc-options: -Wall -Wnoncanonical-monad-instances
-                 -Wincomplete-uni-patterns -Wincomplete-record-updates
-                 -Wredundant-constraints -Widentities
-                 -- See Plutus Tx readme
-                 -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    ghc-options: -Wall
+                 -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns
+                 -Wincomplete-record-updates
+                 -Wredundant-constraints
+                 -Widentities
+                 -fobject-code
+                 -fno-ignore-interface-pragmas
+                 -fno-omit-interface-pragmas
+
     if flag(defer-plugin-errors)
         ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
+common lang-ext
+    default-extensions:
+      BangPatterns
+      ExplicitForAll
+      FlexibleContexts
+      ScopedTypeVariables
+      DerivingStrategies
+      DeriveAnyClass
+      DeriveGeneric
+      StandaloneDeriving
+      DeriveLift
+      GeneralizedNewtypeDeriving
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      LambdaCase
+      MonoLocalBinds
+      MultiParamTypeClasses
+      NoImplicitPrelude
+      RecordWildCards
+      OverloadedStrings
+      TypeFamilies
+      QuasiQuotes
+      TemplateHaskell
+      DataKinds
+      TypeOperators
+      TypeApplications
+      FlexibleInstances
+      TypeSynonymInstances
+      TupleSections
+      NumericUnderscores
+      ImportQualifiedPost
+      RankNTypes
+      NamedFieldPuns
+
 library
+    import: base, lang-ext
     exposed-modules:
       AltDex.Contracts.PubKey
       AltDex.Contracts.Base
@@ -47,6 +93,9 @@ library
       AltDex.Contracts.OnChain
       AltDex.Contracts.Serialise
       AltDex.WalletLog
+      AltDex.Roundtrip.PAB.Run
+      AltDex.Roundtrip.PAB.Contracts
+      AltDex.Roundtrip.Nami
     build-depends:
       base >= 4.9 && < 5,
       directory,
@@ -66,6 +115,7 @@ library
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
+      plutus-pab,
       playground-common -any,
       openapi3 -any,
       prettyprinter,
@@ -123,6 +173,7 @@ library
 --     tasty-quickcheck
 
 executable alt-dex-pab
+  import: base
   other-modules:
     SimulatorActions
   main-is: Main.hs
@@ -186,3 +237,13 @@ executable alt-dex-pab
 --                       , bytestring
 --                       , serialise -any
 --                       , alt-dex -any
+
+executable roundtrip-demo
+  import:               base, lang
+  import:               lang-ext
+  hs-source-dirs:       roundtrip-demo
+  main-is:              Main.hs
+  ghc-options:          -threaded -rtsopts "-with-rtsopts=-T"
+
+  main-is: roundtrip-demo/Main.hs
+  build-depends: alt-dex -any
