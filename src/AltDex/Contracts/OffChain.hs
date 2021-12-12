@@ -55,7 +55,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup (..), dropWh
 import           Prelude                          as Haskell (Int, Semigroup (..), String, div, dropWhile, flip, show,
                                                               (^))
 import           Text.Printf                      (printf)
-import qualified Playground.Types as Mnetary
 import qualified AltDex.WalletLog as WLog
 type DexUserState = WLog.WalletLog (Either Text UserContractState)
 
