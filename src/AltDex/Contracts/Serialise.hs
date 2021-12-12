@@ -20,7 +20,8 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
 module AltDex.Contracts.Serialise(
-      tokensMinterTxOutRef, tokensCurrencySymbol, writeTokensMintingScript,
+      tokensMinterTxOutRef, tokensCurrencySymbol,
+      writeTokensMintingScript, showMeTehDatum, tokensCurrency,
       tokensMintingValidatorAsCBOR,
       swapFactoryCoin,
       showSwapFactoryEmptyData, showSwapFactoryExampleDataJSON,
@@ -115,14 +116,28 @@ dktTokenName = "DKT"
 bonTokenName :: TokenName
 bonTokenName = "BON"
 
+tokenOneName :: TokenName
+tokenOneName = "MAC"
+
+tokenTwoName :: TokenName
+tokenTwoName = "SRK"
+
 tokensMinterTxOutRef :: TxOutRef
-tokensMinterTxOutRef = TxOutRef "dc31d3826b2292c4f9b879005a490314b362f8bf8182e681de1ec147c06a67f4" 0
+tokensMinterTxOutRef = TxOutRef "f58807ef7ce16c95f681b29adac91d08c2550cacfba94d2768c3a5fb29e59e45" 0
+
+-- tokensCurrency :: FiniteCurency
+-- tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
+--     where
+--         tokens :: [(TokenName, Integer)]
+--         tokens = [(ztnTokenName, amt), (zltTokenName, amt), (dktTokenName, amt), (bonTokenName, amt)]
+
+--         amt = 1_000_000
 
 tokensCurrency :: FiniteCurency
 tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
     where
         tokens :: [(TokenName, Integer)]
-        tokens = [(ztnTokenName, amt), (zltTokenName, amt), (dktTokenName, amt), (bonTokenName, amt)]
+        tokens = [(tokenOneName, amt), (tokenTwoName, amt)]
 
         amt = 1_000_000
 
