@@ -1,4 +1,4 @@
-let 
+let
   sourcesFile = ./sources.json;
   system = builtins.currentSystem;
   sources = import ./sources.nix { inherit sourcesFile system; };
