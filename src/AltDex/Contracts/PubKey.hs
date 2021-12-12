@@ -30,6 +30,7 @@ import qualified PlutusTx
 
 import qualified Ledger.Constraints       as Constraints
 import           Plutus.Contract          as Contract
+import           Prelude
 
 mkValidator :: PubKeyHash -> () -> () -> ScriptContext -> Bool
 mkValidator pk' _ _ p = V.txSignedBy (scriptContextTxInfo p) pk'
