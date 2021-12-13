@@ -36,7 +36,6 @@ common base
     , plutus-tx
     , plutus-ledger-api
     , plutus-chain-index
-    , plutus-chain-index-core
     , plutus-tx-plugin
     , plutus-pab
     , plutus-use-cases
@@ -60,7 +59,6 @@ common base
     , req
     , lens-aeson
     , base16-bytestring
-    , shelley-spec-ledger
     , ouroboros-consensus-shelley
     , cardano-ledger-core
     , yaml
