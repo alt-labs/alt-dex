@@ -1,4 +1,5 @@
-{ pkgs
+{ src
+, pkgs
 , plutus
 , doCoverage ? false
 , deferPluginErrors ? true
@@ -6,11 +7,6 @@
 }:
 
 let
-  src = pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "alt-dex";
-    src = ./..;
-  };
-
   plutusPkgs = plutus.pkgs;
 
   sources = import ./sources.nix {};
@@ -20,6 +16,8 @@ pkgs.haskell-nix.cabalProject {
 
   name = "alt-dex";
 
+  cabalProjectFileName = "cabal.project";
+
   # Plutus uses a patched GHC. And so shall we.
   compiler-nix-name = "ghc810420210212";
 
@@ -28,36 +26,57 @@ pkgs.haskell-nix.cabalProject {
   # Update using:
   #   nix-build default.nix 2>&1 | grep -om1 '/nix/store/.*-updateMaterialized' | bash
   # plan-sha256 = "0000000000000000000000000000000000000000000000000000";
-  # materialized = ./materialization/alt-dex.materialized;
+  # materialized = ./materialization/mlabs-plutus-use-cases.materialized;
+
   shell = {
-    # putting packages here will make them available in the hoogle index generated
-    # by the shell
+    # Make sure to keep this list updated after upgrading git dependencies!
     additional = ps: with ps; [
-      plutus-core
-      plutus-ledger-api
-      plutus-tx
-      plutus-tx-plugin
-      word-array
-      prettyprinter-configurable
       plutus-extra
       tasty-plutus
       plutus-pretty
       plutus-numeric
+      base-deriving-via
+      cardano-addresses
+      cardano-addresses-cli
+      cardano-binary
+      cardano-crypto
+      cardano-crypto-class
+      cardano-crypto-praos
+      cardano-crypto-wrapper
+      cardano-ledger-alonzo
+      cardano-ledger-byron
+      cardano-ledger-core
+      cardano-ledger-pretty
+      cardano-ledger-shelley
+      cardano-ledger-shelley-ma
+      cardano-prelude
+      cardano-slotting
+      flat
+      freer-extras
+      goblins
+      measures
+      orphans-deriving-via
       playground-common
-      plutus-chain-index
-      plutus-chain-index-core
       plutus-contract
+      plutus-core
       plutus-ledger
+      plutus-ledger-api
       plutus-pab
       plutus-playground-server
+      plutus-tx
+      plutus-tx-plugin
       plutus-use-cases
+      prettyprinter-configurable
       quickcheck-dynamic
-      web-ghc
+      Win32-network
+      word-array
     ];
 
     withHoogle = true;
 
     tools.cabal = "latest";
+
+    exactDeps = true;
 
     nativeBuildInputs = with pkgs;
       [
@@ -117,12 +136,6 @@ pkgs.haskell-nix.cabalProject {
           plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
         cardano-crypto-class.components.library.pkgconfig =
           plutusPkgs.lib.mkForce [ [ plutusPkgs.libsodium-vrf ] ];
-
-        # This allows us to generate .tix coverage files, which could be useful?
-        "${src.name}".components.library = {
-          doHoogle = deferPluginErrors;
-          doCoverage = doCoverage;
-        };
       };
     }
   ];
@@ -139,7 +152,7 @@ pkgs.haskell-nix.cabalProject {
       sources.plutus.sha256;
     "https://github.com/input-output-hk/plutus-apps.git"."${sources.plutus-apps.rev}" =
       sources.plutus-apps.sha256;
-    "https://github.com/ngua/plutus-extra.git"."${sources.plutus-extra.rev}" =
+    "https://github.com/Liqwid-Labs/plutus-extra.git"."${sources.plutus-extra.rev}" =
       sources.plutus-extra.sha256;
 
     # `cardano-*`

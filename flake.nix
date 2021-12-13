@@ -1,4 +1,6 @@
 {
+  description = "alt-dex";
+
   inputs = {
     flake-utils = {
       type = "github";
@@ -13,7 +15,7 @@
       type = "github";
       owner = "input-output-hk";
       repo = "plutus";
-      rev = "2721c59fd2302b75c4138456c29fd5b509e8340a";
+      rev = "3f089ccf0ca746b399c99afe51e063b0640af547";
       flake = false;
     };
 
@@ -52,9 +54,15 @@
         let
           pkgs = nixpkgsFor system;
           plutus = import plutusSrc { inherit system; };
+          fakeSrc = pkgs.runCommand "real-src" {} ''
+            cp -rT ${self} $out || cp -rT ${self} $out
+            chmod u+w $out/cabal.project
+            cat $out/nix/haskell-nix-cabal.project >> $out/cabal.project
+          '';
+          src = fakeSrc.outPath;
         in
           import ./nix/haskell.nix {
-            inherit system pkgs plutus;
+            inherit src pkgs plutus system;
           };
 
     in
@@ -72,30 +80,19 @@
 
         devShell = perSystem (system: self.flake.${system}.devShell);
 
+        # This will build all of the project's executables and the tests
+        check = perSystem (
+          system:
+            (nixpkgsFor system).runCommand "combined-executables" {
+              nativeBuildInputs = builtins.attrValues self.checks.${system};
+            } "touch $out"
+        );
+
         # NOTE `nix flake check` will not work at the moment due to use of
         # IFD in haskell.nix
-
-        # checks = perSystem (
-        #   system:
-        #     let
-        #       flakePkgs = self.flake.${system}.packages;
-        #     in
-        #       {
-        #         tests =
-        #           flakePkgs."alt-dex:test:alt-dex-tests";
-        #         deploy-app =
-        #           flakePkgs."alt-dex:exe:deploy-app";
-        #         governance-demo =
-        #           flakePkgs."alt-dex:exe:governance-demo";
-        #         lendex-demo =
-        #           flakePkgs."alt-dex:exe:lendex-demo";
-        #         alt-dex =
-        #           flakePkgs."alt-dex:exe:alt-dex";
-        #         nft-demo = flakePkgs."alt-dex:exe:nft-demo";
-        #         nft-marketplace =
-        #           flakePkgs."alt-dex:exe:nft-marketplace";
-        #       }
-        # );
-
+        #
+        # Includes all of the packages in the `checks`, otherwise only the
+        # test suite would be included
+        checks = perSystem (system: self.flake.${system}.packages);
       };
 }

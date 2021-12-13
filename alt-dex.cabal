@@ -1,7 +1,6 @@
 cabal-version:      2.4
 name:               alt-dex
 version:            0.1.0.0
-
 license:            Apache-2.0
 license-files:      LICENSE
 author:             AltLabs
@@ -20,11 +19,53 @@ source-repository this
 
 common base
   build-depends:
-    base >= 4.14 && < 4.15,
-    purescript-bridge,
-    freer-simple,
-    freer-extras,
-    data-default
+    base
+    , aeson
+    , ansi-terminal
+    , bytestring
+    , containers
+    , data-default
+    , extra
+    , freer-simple
+    , mtl
+    , openapi3
+    , playground-common
+    , plutus-core
+    , plutus-contract
+    , plutus-ledger
+    , plutus-tx
+    , plutus-ledger-api
+    , plutus-chain-index
+    , plutus-chain-index-core
+    , plutus-tx-plugin
+    , plutus-pab
+    , plutus-use-cases
+    , prettyprinter
+    , pretty-show
+    , row-types
+    , stm
+    , lens
+    , tasty
+    , tasty-hunit
+    , text
+    , freer-extras
+    , insert-ordered-containers
+    , serialise
+    , cardano-api
+    , cardano-ledger-alonzo
+    , plutus-extra
+    , purescript-bridge
+    , transformers
+    -- wbe testing stuff
+    , memory
+    , req
+    , lens-aeson
+    , base16-bytestring
+    , shelley-spec-ledger
+    , ouroboros-consensus-shelley
+    , cardano-ledger-core
+    , yaml
+    , purescript-bridge
 
 common lang
     default-language: Haskell2010
@@ -172,7 +213,7 @@ library
 --     tasty-hedgehog >=0.2.0.0,
 --     tasty-quickcheck
 
-executable alt-dex-pab
+executable alt-dex
   import: base
   other-modules:
     SimulatorActions
