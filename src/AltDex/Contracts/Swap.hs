@@ -22,11 +22,11 @@ import           Control.Monad             (forM_, when, void)
 import qualified Data.Semigroup            as Semigroup
 import           Ledger.Constraints
 import           Ledger.Value              as Value
-import           Plutus.Contract           hiding (when)
+import           Plutus.Contract as Contract hiding (throwError)
 import           AltDex.Contracts.Monetary
 import      qualified     AltDex.Contracts.Monetary as Monetary
 import           AltDex.Contracts.LiquidityPool
-import           Wallet.Emulator.Types     (Wallet (..), walletPubKey)
+import           Wallet.Emulator.Types     (Wallet (..))
 
 import qualified Data.OpenApi.Schema as OpenApi
 import           Ledger
@@ -65,16 +65,16 @@ PlutusTx.makeLift ''AltSwapAction
 
 initContract :: Contract (Maybe (Semigroup.Last Monetary.LimitedSupplyCurrency)) Monetary.CurrencySchema Monetary.CurrencyError ()
 initContract = do
-    ownPK <- pubKeyHash <$> ownPubKey
+    ownPK <- Contract.ownPubKeyHash
     cur   <- Monetary.mintContract ownPK [(tn,fromIntegral (length knownWallets) * amount) | tn <- tokenNames]
     let cs = Monetary.currencySymbol cur
         v  = mconcat [Value.singleton cs tn amount | tn <- tokenNames]
 
     forM_ knownWallets $ \w -> do
-        let pkh = pubKeyHash $ walletPubKey w
+        let pkh = Wallet.Emulator.Wallet.walletPubKeyHash w
         when (pkh /= ownPK) $ do
             tx <- submitTx $ mustPayToPubKey pkh v
-            awaitTxConfirmed $ txId tx
+            awaitTxConfirmed $ getCardanoTxId tx
 
     tell $ Just $ Semigroup.Last cur
 

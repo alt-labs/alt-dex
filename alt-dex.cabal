@@ -131,9 +131,10 @@ library
       AltDex.Contracts.OnChain
       AltDex.Contracts.Serialise
       AltDex.WalletLog
-      AltDex.Roundtrip.PAB.Run
-      AltDex.Roundtrip.PAB.Contracts
-      AltDex.Roundtrip.Nami
+      AltDex.Contracts.MintTrace
+      -- AltDex.Roundtrip.PAB.Run
+      -- AltDex.Roundtrip.PAB.Contracts
+      -- AltDex.Roundtrip.Nami
     build-depends:
       base >= 4.9 && < 5,
       directory,
@@ -285,3 +286,13 @@ executable roundtrip-demo
 
   main-is: roundtrip-demo/Main.hs
   build-depends: alt-dex -any
+
+executable scripts
+  import:               base, lang
+  import:               lang-ext
+  hs-source-dirs:       scripts
+  main-is:              Main.hs
+  ghc-options:          -threaded -rtsopts "-with-rtsopts=-T"
+
+  build-depends: alt-dex -any,
+                 foldl, flat, streaming, directory, filepath

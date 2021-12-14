@@ -201,7 +201,7 @@ data AddParams = AddParams
 -- for any pair of tokens at any given time.
 start :: forall w s. Contract w s Text AltSwap
 start = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- Plutus.Contract.ownPubKeyHash
 
     -- currency symbol of the NFT SWP
     cs  <- fmap Monetary.currencySymbol $
@@ -214,7 +214,7 @@ start = do
         tx      = mustPayToTheScript (Factory []) $ Monetary.unitValue c
 
     ledgerTx <- submitTxConstraints inst tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
     void $ waitNSlots 1
 
     logInfo @String $ printf "started AltSwap %s at address %s" (show altswap) (show $ aswpAddress altswap)
@@ -251,7 +251,7 @@ create altswap CreateParams{..} = do
                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Create lp)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
 
     logInfo $ "created liquidity pool: " ++ show lp
 
@@ -259,7 +259,7 @@ create altswap CreateParams{..} = do
 close :: forall w s. AltSwap -> CloseParams -> Contract w s Text ()
 close altswap CloseParams{..} = do
     ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findAltSwapFactoryAndPool altswap clpCoinA clpCoinB
-    pkh                                            <- pubKeyHash <$> ownPubKey
+    pkh                                            <- Plutus.Contract.ownPubKeyHash
     let swpInst   = aswpInstance altswap
         swpScript = aswpScript altswap
         swpDat    = Factory $ filter (/= lp) lps
@@ -284,7 +284,7 @@ close altswap CloseParams{..} = do
                    Constraints.mustIncludeDatum (Datum $ PlutusTx.toBuiltinData $ Pool lp liquidity)
 
     ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
 
     logInfo $ "closed liquidity pool: " ++ show lp
 
@@ -292,7 +292,7 @@ close altswap CloseParams{..} = do
 remove :: forall w s. AltSwap -> RemoveParams -> Contract w s Text ()
 remove altswap RemoveParams{..} = do
     (_, (oref, o, lp, liquidity)) <- findAltSwapFactoryAndPool altswap rpCoinA rpCoinB
-    pkh                           <- pubKeyHash <$> ownPubKey
+    pkh                           <- Plutus.Contract.ownPubKeyHash
     when (rpDiff < 1 || rpDiff >= liquidity) $ throwError "removed liquidity must be positive and less than total liquidity"
     let swpInst      = aswpInstance altswap
         swpScript    = aswpScript altswap
@@ -319,14 +319,14 @@ remove altswap RemoveParams{..} = do
                    Constraints.mustSpendScriptOutput oref redeemer
 
     ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
 
     logInfo $ "removed liquidity from pool: " ++ show lp
 
 -- | Adds some liquidity to an existing liquidity pool in exchange for newly minted liquidity tokens.
 add :: forall w s. AltSwap -> AddParams -> Contract w s Text ()
 add aswp AddParams{..} = do
-    pkh                           <- pubKeyHash <$> ownPubKey
+    pkh                           <- Plutus.Contract.ownPubKeyHash
     (_, (oref, o, lp, liquidity)) <- findAltSwapFactoryAndPool aswp apCoinA apCoinB
     when (apAmountA < 0 || apAmountB < 0) $ throwError "amounts must not be negative"
     let outVal = view ciTxOutValue o
@@ -364,7 +364,7 @@ add aswp AddParams{..} = do
     logInfo $ show tx
 
     ledgerTx <- submitTxConstraintsWith lookups tx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
 
     logInfo $ "added liquidity to pool: " ++ show lp
 
@@ -384,7 +384,7 @@ swap aswp SwapParams{..} = do
         let outA = Monetary.Amount $ findSwapB oldA oldB spAmountB
         when (outA == 0) $ throwError "no payout"
         return (oldA - outA, oldB + spAmountB)
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- Plutus.Contract.ownPubKeyHash
 
     logInfo @String $ printf "oldA = %d, oldB = %d, old product = %d, newA = %d, newB = %d, new product = %d" oldA oldB (Monetary.swpAmount oldA * Monetary.swpAmount oldB) newA newB (Monetary.swpAmount newA * Monetary.swpAmount newB)
 
@@ -402,7 +402,7 @@ swap aswp SwapParams{..} = do
     logInfo $ show tx
     ledgerTx <- submitTxConstraintsWith lookups tx
     logInfo $ show ledgerTx
-    void $ awaitTxConfirmed $ txId ledgerTx
+    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
     logInfo $ "swapped with: " ++ show lp
 
 -- | Finds all liquidity pools and their liquidity belonging to the AltSwap instance.
@@ -438,7 +438,7 @@ pools aswp = do
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
 funds = do
-    pkh <- pubKeyHash <$> ownPubKey
+    pkh <- Plutus.Contract.ownPubKeyHash
     os  <- map snd . Map.toList <$> utxosAt (pubKeyHashAddress pkh)
     return $ mconcat [view ciTxOutValue o | o <- os]
 

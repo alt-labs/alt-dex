@@ -18,10 +18,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
 
 module AltDex.Contracts.Serialise(
+      zltTokenName, dktTokenName,
       tokensMinterTxOutRef, tokensCurrencySymbol,
       writeTokensMintingScript, showMeTehDatum, tokensCurrency,
+      tokensMintingScript,
       tokensMintingValidatorAsCBOR,
       swapFactoryCoin,
       showSwapFactoryEmptyData, showSwapFactoryExampleDataJSON,
@@ -30,7 +33,7 @@ module AltDex.Contracts.Serialise(
       validatorAsCBOR,
       swapTokenScript, swapTokenScriptShortBs,
       writeSwapScript, writeSwapFactoryNFTMintingScript,
-      writeLpMintingScript,
+      lp, lpToken, lpCoin, mintLpTokensData, writeLpMintingScript,
       showSwapRedeemerJSON,
       main
     ) where
@@ -153,6 +156,9 @@ showMeTehDatum =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema mi
 tokensMintingValidator :: FiniteCurency -> Validator
 tokensMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy
 
+tokensMintingScript :: FiniteCurency -> Script
+tokensMintingScript = unMintingPolicyScript . Monetary.monetaryPolicy
+
 tokensMintingValidatorAsCBOR :: LB.ByteString
 tokensMintingValidatorAsCBOR = serialise $ tokensMintingValidator tokensCurrency
 
@@ -202,11 +208,14 @@ writeSwapFactoryNFTMintingScript = writeScriptToFile "altswap-nft.plutus" swapFa
 -- Liquidity Pool Minting Script
 ----------------------------------------------------------------------------------------
 
+srkiCurrencySymbol :: CurrencySymbol
+srkiCurrencySymbol = "ace06a09ce02f65f6a292e54871a2d827066d62933195c33eab4a468"
+
 lp :: LP.LiquidityPool
 lp = LP.LiquidityPool coinA coinB
   where
-    coinA = Monetary.mkCoin tokensCurrencySymbol zltTokenName
-    coinB = Monetary.mkCoin tokensCurrencySymbol dktTokenName
+    coinA = Monetary.mkCoin srkiCurrencySymbol zltTokenName
+    coinB = Monetary.mkCoin srkiCurrencySymbol dktTokenName
 
 lpToken :: TokenName
 lpToken = LP.lpTicker lp

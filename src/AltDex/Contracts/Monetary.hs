@@ -49,7 +49,7 @@ import           Plutus.Contract.Wallet (getUnspentOutput)
 import qualified PlutusTx
 
 import           Ledger                 (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash, pubKeyHashAddress,
-                                         scriptCurrencySymbol, txId)
+                                         scriptCurrencySymbol, getCardanoTxId, txId)
 import           Ledger.Value
                ( AssetClass(..),
                  assetClass,
@@ -200,7 +200,7 @@ instance AsContractError CurrencyError where
 --   If @k == 0@ then no value is minted. A one-shot minting policy
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
-mintContract :: forall w s e. ( AsCurrencyError e)
+mintContract :: forall w s e. (AsCurrencyError e)
     => PubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e LimitedSupplyCurrency
@@ -214,7 +214,7 @@ mintContract pk amounts = mapError (review _CurrencyError) $ do
         mintTx      = Constraints.mustSpendPubKeyOutput txOutRef
                         <> Constraints.mustMintValue (mintedValue newCurrency)
     tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
-    _ <- awaitTxConfirmed (txId tx)
+    _ <- awaitTxConfirmed (getCardanoTxId tx)
     pure newCurrency
 
 -- | Minting policy for a currency that has a fixed amount of tokens issued
@@ -235,7 +235,7 @@ mintCurrency
     :: Promise (Maybe (Last LimitedSupplyCurrency))
     CurrencySchema CurrencyError LimitedSupplyCurrency
 mintCurrency = endpoint @"Create native token" $ \SimpleMPS{tokenName, amount} -> do
-    ownPK <- pubKeyHash <$> Contract.ownPubKey
+    ownPK <- Contract.ownPubKeyHash
     cur <- mintContract ownPK [(tokenName, amount)]
     tell (Just (Last cur))
     pure cur

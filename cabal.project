@@ -19,7 +19,7 @@ source-repository-package
     plutus-contract
     plutus-chain-index
     plutus-ledger
-    plutus-pab``
+    plutus-pab
     plutus-use-cases
     quickcheck-dynamic
   tag: plutus-starter-devcontainer/v1.0.14
