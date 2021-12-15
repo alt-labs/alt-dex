@@ -1,22 +1,21 @@
 
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MonoLocalBinds      #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ViewPatterns        #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE MonoLocalBinds             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
 
@@ -34,73 +33,78 @@ module AltDex.Contracts.Serialise(
       swapTokenScript, swapTokenScriptShortBs,
       writeSwapScript, writeSwapFactoryNFTMintingScript,
       lp, lpToken, lpCoin, mintLpTokensData, writeLpMintingScript,
-      showSwapRedeemerJSON,
+      showSwapRedeemerJSON, showAfterCreatePoolDatum, showAfterCreatePooFactorylDatum,
       main
     ) where
 
-import qualified Data.Traversable as DT
-import qualified Data.OpenApi.Schema as OpenApi
 import           Control.Lens
-import qualified Data.Aeson as JSON
-import           PlutusTx.Prelude       hiding (Monoid (..), Semigroup (..))
-import           Plutus.Contract        as Contract
-import           Plutus.Contract.Wallet (getUnspentOutput)
+import qualified Data.Aeson                     as JSON
+import qualified Data.OpenApi.Schema            as OpenApi
+import qualified Data.Traversable               as DT
+import           Plutus.Contract                as Contract
+import           Plutus.Contract.Wallet         (getUnspentOutput)
 import qualified PlutusTx
+import           PlutusTx.Prelude               hiding (Monoid (..),
+                                                 Semigroup (..))
 
-import           Ledger                 (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash, pubKeyHashAddress,
-                                         scriptCurrencySymbol, txId)
-import           Ledger.Value
-               ( AssetClass(..),
-                 assetClass,
-                 assetClassValue,
-                 assetClassValueOf,
-                 TokenName,
-                 Value )
-import qualified Ledger.Constraints     as Constraints
-import qualified Ledger.Contexts        as V
+import           Ledger                         (CurrencySymbol, PubKeyHash,
+                                                 TxId, TxOutRef (..),
+                                                 pubKeyHash, pubKeyHashAddress,
+                                                 scriptCurrencySymbol, txId)
+import qualified Ledger.Constraints             as Constraints
+import qualified Ledger.Contexts                as V
 import           Ledger.Scripts
+import           Ledger.Value                   (AssetClass (..), TokenName,
+                                                 Value, assetClass,
+                                                 assetClassValue,
+                                                 assetClassValueOf)
 
-import qualified Ledger.Typed.Scripts   as Scripts
-import qualified Ledger.Value           as Value
+import qualified Ledger.Typed.Scripts           as Scripts
+import qualified Ledger.Value                   as Value
 
-import           Data.Semigroup         (Last (..))
+import           Data.Semigroup                 (Last (..))
 
-import           GHC.Generics           (Generic)
+import           GHC.Generics                   (Generic)
 
-import qualified PlutusTx.AssocMap      as AssocMap
-import           Prelude                (Semigroup (..), Functor (..))
-import qualified Prelude                as Haskell
+import qualified PlutusTx.AssocMap              as AssocMap
+import           Prelude                        (Functor (..), Semigroup (..))
+import qualified Prelude                        as Haskell
 
 
-import           Schema                 (ToSchema)
+import           Schema                         (ToSchema)
 
-import           Text.Printf         (PrintfArg)
+import           Text.Printf                    (PrintfArg)
 
 import           Wallet.Emulator.Wallet
 
-import           Plutus.Trace.Emulator  (EmulatorRuntimeError (GenericError), EmulatorTrace)
-import qualified Plutus.Trace.Emulator  as Emulator
+import           Plutus.Trace.Emulator          (EmulatorRuntimeError (GenericError),
+                                                 EmulatorTrace)
+import qualified Plutus.Trace.Emulator          as Emulator
 
-import Control.Monad (forever)
+import           Control.Monad                  (forever)
 
-import           Cardano.Api.Shelley (PlutusScript (..), PlutusScriptV1, ScriptData)
+import           Cardano.Api.Shelley            (PlutusScript (..),
+                                                 PlutusScriptV1, ScriptData)
 import           Codec.Serialise
-import qualified Data.ByteString.Lazy as LB
-import qualified Data.ByteString.Short as SBS
+import qualified Data.ByteString.Lazy           as LB
+import qualified Data.ByteString.Short          as SBS
 
 -- import           Cardano.Api
-import           Cardano.Api.Shelley (fromPlutusData, toAlonzoData, writeFileTextEnvelope, displayError, scriptDataToJson, ScriptDataJsonSchema(..))
+import           Cardano.Api.Shelley            (ScriptDataJsonSchema (..),
+                                                 displayError, fromPlutusData,
+                                                 scriptDataToJson, toAlonzoData,
+                                                 writeFileTextEnvelope)
 
-import qualified Cardano.Ledger.Alonzo.Data as Alonzo
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Cardano.Ledger.Alonzo.Data     as Alonzo
+import qualified Plutus.V1.Ledger.Api           as Plutus
 
 
-import qualified AltDex.Contracts.Base as Base
-import qualified AltDex.Contracts.Swap as Swap
-import qualified AltDex.Contracts.Monetary as Monetary
-import qualified AltDex.Contracts.OffChain as OffChain
+import qualified AltDex.Contracts.Base          as Base
 import qualified AltDex.Contracts.LiquidityPool as LP
-import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified AltDex.Contracts.Monetary      as Monetary
+import qualified AltDex.Contracts.OffChain      as OffChain
+import qualified AltDex.Contracts.Swap          as Swap
+import qualified Data.ByteString.Lazy.Char8     as LB
 
 type FiniteCurency = Monetary.LimitedSupplyCurrency
 
@@ -296,6 +300,26 @@ writeSwapScript :: Haskell.IO ()
 writeSwapScript = writeScriptToFile "altswap.plutus" plutusMintingScript swapScriptData
 
 ---------------------------------------------------------------------------------------------------------------
+-- Create LP Output(s) Datums
+----------------------------------------
+afterCreatePoolDatum :: Swap.AltSwapDatum
+afterCreatePoolDatum = Swap.Pool lp (Monetary.Amount 100)
+
+afterCreatePoolData :: ScriptData
+afterCreatePoolData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData afterCreatePoolDatum)
+
+showAfterCreatePoolDatum :: LB.ByteString
+showAfterCreatePoolDatum =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema afterCreatePoolData
+
+
+afterCreatePooFactorylDatum :: Swap.AltSwapDatum
+afterCreatePooFactorylDatum = Swap.Factory [lp]
+
+afterCreatePooFactorylData:: ScriptData
+afterCreatePooFactorylData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData afterCreatePooFactorylDatum)
+
+showAfterCreatePooFactorylDatum :: LB.ByteString
+showAfterCreatePooFactorylDatum =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema afterCreatePooFactorylData
 
 -- liquidityPolicy ::
 

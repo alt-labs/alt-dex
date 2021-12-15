@@ -1,20 +1,19 @@
 let
-  # Pratically, the only needed dependency is the plutus repository.
   sources = import ./sources.nix { inherit pkgs; };
 
-  # We're going to get everything from the main plutus repository. This ensures
-  # we're using the same version of multiple dependencies such as nipxkgs,
-  # haskell-nix, cabal-install, compiler-nix-name, etc.
-  plutus = import sources.plutus-apps {};
+  plutus = import sources.plutus-apps { };
+
+  easy-purescript-nix = import sources.easy-purescript-nix { inherit pkgs; };
+
+  pre-commit-hooks-nix = import sources.pre-commit-hooks-nix;
+
   pkgs = plutus.pkgs;
 
   haskell-nix = pkgs.haskell-nix;
 
-  plutus-starter = import ./pkgs {
-    inherit pkgs haskell-nix sources plutus;
+  dex = import ./pkgs {
+    inherit pkgs haskell-nix sources plutus pre-commit-hooks-nix;
   };
 
 in
-{
-  inherit pkgs plutus-starter;
-}
+{ inherit pkgs plutus dex easy-purescript-nix; }

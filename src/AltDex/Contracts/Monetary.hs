@@ -1,21 +1,20 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MonoLocalBinds      #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ViewPatterns        #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE MonoLocalBinds             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
 module AltDex.Contracts.Monetary(
@@ -40,58 +39,64 @@ module AltDex.Contracts.Monetary(
     A, B, BON, DKT, ZTN, ZLT
     ) where
 
-import qualified Data.OpenApi.Schema as OpenApi
 import           Control.Lens
-import qualified Data.Aeson as JSON
-import           PlutusTx.Prelude       hiding (Monoid (..), Semigroup (..))
-import           Plutus.Contract        as Contract
-import           Plutus.Contract.Wallet (getUnspentOutput)
+import qualified Data.Aeson                 as JSON
+import qualified Data.OpenApi.Schema        as OpenApi
+import           Plutus.Contract            as Contract
+import           Plutus.Contract.Wallet     (getUnspentOutput)
 import qualified PlutusTx
+import           PlutusTx.Prelude           hiding (Monoid (..), Semigroup (..))
 
-import           Ledger                 (CurrencySymbol, PubKeyHash, TxId, TxOutRef (..), pubKeyHash, pubKeyHashAddress,
-                                         scriptCurrencySymbol, getCardanoTxId, txId)
-import           Ledger.Value
-               ( AssetClass(..),
-                 assetClass,
-                 assetClassValue,
-                 assetClassValueOf,
-                 TokenName,
-                 Value )
-import qualified Ledger.Constraints     as Constraints
-import qualified Ledger.Contexts        as V
+import           Ledger                     (CurrencySymbol, PaymentPubKeyHash,
+                                             PubKeyHash, TxId, TxOutRef (..),
+                                             getCardanoTxId, pubKeyHash,
+                                             pubKeyHashAddress,
+                                             scriptCurrencySymbol, txId)
+import qualified Ledger.Constraints         as Constraints
+import qualified Ledger.Contexts            as V
 import           Ledger.Scripts
+import           Ledger.Value               (AssetClass (..), TokenName, Value,
+                                             assetClass, assetClassValue,
+                                             assetClassValueOf)
 
-import qualified Ledger.Typed.Scripts   as Scripts
-import qualified Ledger.Value           as Value
+import qualified Ledger.Typed.Scripts       as Scripts
+import qualified Ledger.Value               as Value
 
-import           Data.Semigroup         (Last (..))
+import           Data.Semigroup             (Last (..))
 
-import           GHC.Generics           (Generic)
+import           GHC.Generics               (Generic)
 
-import qualified PlutusTx.AssocMap      as AssocMap
-import           Prelude                (Semigroup (..))
-import qualified Prelude                as Haskell
+import qualified PlutusTx.AssocMap          as AssocMap
+import           Prelude                    (Semigroup (..))
+import qualified Prelude                    as Haskell
 
-import           Schema                 (ToSchema)
+import           Schema                     (ToSchema)
 
-import           Text.Printf         (PrintfArg)
+import           Text.Printf                (PrintfArg)
 
-import           Plutus.Trace.Emulator  as Emulator
-import           Playground.Contract    (FromJSON, Generic, ToJSON, printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
-import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
-import           Playground.Types       (KnownCurrency (..))
+import           Playground.Contract        (FromJSON, Generic, ToJSON,
+                                             ToSchema, ensureKnownCurrencies,
+                                             printJson, printSchemas, stage)
+import           Playground.TH              (mkKnownCurrencies,
+                                             mkSchemaDefinitions)
+import           Playground.Types           (KnownCurrency (..))
+import           Plutus.Trace.Emulator      as Emulator
 
 import           Wallet.Emulator.Wallet
 
-import           Plutus.Trace.Emulator  (EmulatorRuntimeError (GenericError), EmulatorTrace)
-import qualified Plutus.Trace.Emulator  as Emulator
+import           Plutus.Trace.Emulator      (EmulatorRuntimeError (GenericError),
+                                             EmulatorTrace)
+import qualified Plutus.Trace.Emulator      as Emulator
 
-import Control.Monad (forever)
+import           Control.Monad              (forever)
 
-import           Cardano.Api.Shelley (fromPlutusData, toAlonzoData, writeFileTextEnvelope, displayError, scriptDataToJson, ScriptDataJsonSchema(..))
+import           Cardano.Api.Shelley        (ScriptDataJsonSchema (..),
+                                             displayError, fromPlutusData,
+                                             scriptDataToJson, toAlonzoData,
+                                             writeFileTextEnvelope)
 
 import qualified Cardano.Ledger.Alonzo.Data as Alonzo
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V1.Ledger.Api       as Plutus
 
 -- | SwapCoin
 data SwapCoin = SwapCoin deriving (Haskell.Show, Haskell.Eq, Generic)
@@ -201,12 +206,12 @@ instance AsContractError CurrencyError where
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
 mintContract :: forall w s e. (AsCurrencyError e)
-    => PubKeyHash
+    => PaymentPubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e LimitedSupplyCurrency
 mintContract pk amounts = mapError (review _CurrencyError) $ do
     txOutRef <- getUnspentOutput
-    utxos <- utxosAt (pubKeyHashAddress pk)
+    utxos <- utxosAt (pubKeyHashAddress pk Nothing)
     let newCurrency = mkCurrency txOutRef amounts
         curVali     = monetaryPolicy newCurrency
         lookups     = Constraints.mintingPolicy curVali
@@ -235,7 +240,7 @@ mintCurrency
     :: Promise (Maybe (Last LimitedSupplyCurrency))
     CurrencySchema CurrencyError LimitedSupplyCurrency
 mintCurrency = endpoint @"Create native token" $ \SimpleMPS{tokenName, amount} -> do
-    ownPK <- Contract.ownPubKeyHash
+    ownPK <- Contract.ownPaymentPubKeyHash
     cur <- mintContract ownPK [(tokenName, amount)]
     tell (Just (Last cur))
     pure cur

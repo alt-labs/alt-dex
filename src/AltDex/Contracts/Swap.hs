@@ -13,36 +13,40 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# options_ghc -Wno-redundant-constraints #-}
 {-# options_ghc -fno-specialise            #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module AltDex.Contracts.Swap
   where
 
-import           Control.Monad             (forM_, when, void)
-import qualified Data.Semigroup            as Semigroup
-import           Ledger.Constraints
-import           Ledger.Value              as Value
-import           Plutus.Contract as Contract hiding (throwError)
-import           AltDex.Contracts.Monetary
-import      qualified     AltDex.Contracts.Monetary as Monetary
 import           AltDex.Contracts.LiquidityPool
-import           Wallet.Emulator.Types     (Wallet (..))
+import           AltDex.Contracts.Monetary
+import qualified AltDex.Contracts.Monetary      as Monetary
+import           Control.Monad                  (forM_, void, when)
+import qualified Data.Semigroup                 as Semigroup
+import           Ledger.Constraints
+import           Ledger.Value                   as Value
+import           Plutus.Contract                as Contract hiding (throwError)
+import           Wallet.Emulator.Types          (Wallet (..))
 
-import qualified Data.OpenApi.Schema as OpenApi
+import qualified Data.OpenApi.Schema            as OpenApi
 import           Ledger
-import           Ledger.Value        (AssetClass (..), assetClass, assetClassValue, assetClassValueOf)
-import           Playground.Contract (FromJSON, Generic, ToJSON, ToSchema)
+import           Ledger.Value                   (AssetClass (..), assetClass,
+                                                 assetClassValue,
+                                                 assetClassValueOf)
+import           Playground.Contract            (FromJSON, Generic, ToJSON,
+                                                 ToSchema)
 import qualified PlutusTx
--- import           PlutusTx.Prelude
-import  Prelude
-import  qualified Prelude as Haskell
+import           Prelude
+import qualified Prelude                        as Haskell
 
-import           Text.Printf         (PrintfArg)
-import qualified Wallet.Emulator as Wallet.Emulator.Wallet
-import Wallet.Emulator.Wallet (knownWallets)
-import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
-import AltDex.Contracts.Monetary (SwapCoin)
-import AltDex.Contracts.Base
+import           Data.Text.Prettyprint.Doc      (Pretty (..), viaShow)
+import           Text.Printf                    (PrintfArg)
+import           Wallet.Emulator                (Wallet (..), knownWallet,
+                                                 knownWallets,
+                                                 mockWalletPaymentPubKeyHash)
+
+import           AltDex.Contracts.Base
+import           AltDex.Contracts.Monetary      (SwapCoin)
 
 data AltSwapDatum =
       Factory [LiquidityPool]
@@ -65,13 +69,13 @@ PlutusTx.makeLift ''AltSwapAction
 
 initContract :: Contract (Maybe (Semigroup.Last Monetary.LimitedSupplyCurrency)) Monetary.CurrencySchema Monetary.CurrencyError ()
 initContract = do
-    ownPK <- Contract.ownPubKeyHash
+    ownPK <- Contract.ownPaymentPubKeyHash
     cur   <- Monetary.mintContract ownPK [(tn,fromIntegral (length knownWallets) * amount) | tn <- tokenNames]
     let cs = Monetary.currencySymbol cur
         v  = mconcat [Value.singleton cs tn amount | tn <- tokenNames]
 
     forM_ knownWallets $ \w -> do
-        let pkh = Wallet.Emulator.Wallet.walletPubKeyHash w
+        let pkh = mockWalletPaymentPubKeyHash w
         when (pkh /= ownPK) $ do
             tx <- submitTx $ mustPayToPubKey pkh v
             awaitTxConfirmed $ getCardanoTxId tx

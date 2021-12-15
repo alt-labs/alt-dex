@@ -1,8 +1,4 @@
-{ pkgs
-, sources
-, plutus
-, haskell-nix
-}:
+{ pkgs, sources, plutus, haskell-nix, pre-commit-hooks-nix }:
 let
   gitignore-nix = pkgs.callPackage plutus."gitignore.nix" { };
 
@@ -10,8 +6,7 @@ let
 
   haskell = pkgs.callPackage ./haskell {
     inherit gitignore-nix sources haskell-nix;
-    inherit compiler-nix-name; # Use the same GHC version as plutus
-    inherit (pkgs) libsodium-vrf;
+    inherit compiler-nix-name;
   };
 
   hlint = plutus.plutus-apps.hlint;
@@ -22,8 +17,10 @@ let
 
   haskell-language-server = plutus.plutus-apps.haskell-language-server;
 
-  cardano-repo-tool = plutus.plutus-apps.cardano-repo-tool;
+  purty-pre-commit = plutus.plutus-apps.purty-pre-commit;
+
 in
 {
-  inherit haskell hlint cabal-install stylish-haskell haskell-language-server cardano-repo-tool;
+  inherit haskell hlint cabal-install stylish-haskell;
+  inherit haskell-language-server pre-commit-hooks-nix purty-pre-commit;
 }

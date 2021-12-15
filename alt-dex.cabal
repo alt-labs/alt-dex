@@ -154,6 +154,7 @@ library
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
+      plutus-ledger-constraints,
       plutus-pab,
       playground-common -any,
       openapi3 -any,

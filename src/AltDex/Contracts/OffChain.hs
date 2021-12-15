@@ -31,31 +31,35 @@ module AltDex.Contracts.OffChain
     AltXChange (..)
     ) where
 
-import           Control.Lens                     (view)
-import           Control.Monad                    hiding (fmap)
-import qualified Data.Map                         as Map
-import           Data.Monoid                      (Last (..))
-import           Data.Proxy                       (Proxy (..))
-import           Data.Text                        (Text, pack)
-import           Data.Void                        (Void, absurd)
-import           Ledger                           hiding (singleton)
-import           Ledger.Constraints               as Constraints
-import qualified Ledger.Typed.Scripts             as Scripts
+import           AltDex.Contracts.Base
+import           AltDex.Contracts.Common
+import           AltDex.Contracts.LiquidityPool
+import           AltDex.Contracts.Monetary      (A, B)
+import qualified AltDex.Contracts.Monetary      as Monetary
+import           AltDex.Contracts.OnChain       (mkAltSwapValidator,
+                                                 validateLiquidityMinting)
+import           AltDex.Contracts.Swap
+import qualified AltDex.WalletLog               as WLog
+import           Control.Lens                   (view)
+import           Control.Monad                  hiding (fmap)
+import qualified Data.Map                       as Map
+import           Data.Monoid                    (Last (..))
+import           Data.Proxy                     (Proxy (..))
+import           Data.Text                      (Text, pack)
+import           Data.Void                      (Void, absurd)
+import           Ledger                         hiding (singleton)
+import           Ledger.Constraints             as Constraints
+import qualified Ledger.Typed.Scripts           as Scripts
 import           Playground.Contract
 import           Plutus.Contract
-import           AltDex.Contracts.Base
-import qualified AltDex.Contracts.Monetary        as Monetary
-import           AltDex.Contracts.Monetary        (A, B)
-import           AltDex.Contracts.OnChain (mkAltSwapValidator, validateLiquidityMinting)
-import           AltDex.Contracts.LiquidityPool
-import           AltDex.Contracts.Swap
-import           AltDex.Contracts.Common
 import qualified PlutusTx
-import           PlutusTx.Prelude                 hiding (Semigroup (..), dropWhile, flip, unless)
-import           Prelude                          as Haskell (Int, Semigroup (..), String, div, dropWhile, flip, show,
-                                                              (^))
-import           Text.Printf                      (printf)
-import qualified AltDex.WalletLog as WLog
+import           PlutusTx.Prelude               hiding (Semigroup (..),
+                                                 dropWhile, flip, unless)
+import           Prelude                        as Haskell (Int, Semigroup (..),
+                                                            String, div,
+                                                            dropWhile, flip,
+                                                            show, (^))
+import           Text.Printf                    (printf)
 type DexUserState = WLog.WalletLog (Either Text UserContractState)
 
 data AltXChange
@@ -150,13 +154,13 @@ data CreateParams = CreateParams
 data AltSwapParams a b = AltSwapParams
     {
         swpFrom :: Monetary.Coin a,
-        swpTo :: Monetary.Coin b
+        swpTo   :: Monetary.Coin b
     }
 
 data RightSwapParams = RightSwapParams
     {
-        rswpCoinA :: Monetary.Coin A,
-        rswpCoinB :: Monetary.Coin B,
+        rswpCoinA   :: Monetary.Coin A,
+        rswpCoinB   :: Monetary.Coin B,
 
         rswpAmountA :: Monetary.Amount A,
         rswpAmountB :: Monetary.Amount B
@@ -164,8 +168,8 @@ data RightSwapParams = RightSwapParams
 
 data LeftSwapParams = LeftSwapParams
     {
-        lswpCoinA :: Monetary.Coin A,
-        lswpCoinB :: Monetary.Coin B,
+        lswpCoinA   :: Monetary.Coin A,
+        lswpCoinB   :: Monetary.Coin B,
 
         lswpAmountA :: Monetary.Amount A,
         lswpAmountB :: Monetary.Amount B
@@ -201,7 +205,7 @@ data AddParams = AddParams
 -- for any pair of tokens at any given time.
 start :: forall w s. Contract w s Text AltSwap
 start = do
-    pkh <- Plutus.Contract.ownPubKeyHash
+    pkh <- Plutus.Contract.ownPaymentPubKeyHash
 
     -- currency symbol of the NFT SWP
     cs  <- fmap Monetary.currencySymbol $
@@ -259,7 +263,7 @@ create altswap CreateParams{..} = do
 close :: forall w s. AltSwap -> CloseParams -> Contract w s Text ()
 close altswap CloseParams{..} = do
     ((oref1, o1, lps), (oref2, o2, lp, liquidity)) <- findAltSwapFactoryAndPool altswap clpCoinA clpCoinB
-    pkh                                            <- Plutus.Contract.ownPubKeyHash
+    pkh                                            <- Plutus.Contract.ownPaymentPubKeyHash
     let swpInst   = aswpInstance altswap
         swpScript = aswpScript altswap
         swpDat    = Factory $ filter (/= lp) lps
@@ -274,7 +278,7 @@ close altswap CloseParams{..} = do
         lookups  = Constraints.typedValidatorLookups swpInst        <>
                    Constraints.otherScript swpScript                <>
                    Constraints.mintingPolicy (liquidityPolicy altswap) <>
-                   Constraints.ownPubKeyHash pkh                   <>
+                   Constraints.ownPaymentPubKeyHash pkh                   <>
                    Constraints.unspentOutputs (Map.singleton oref1 o1 <> Map.singleton oref2 o2)
 
         tx       = Constraints.mustPayToTheScript swpDat swpVal          <>
@@ -292,7 +296,7 @@ close altswap CloseParams{..} = do
 remove :: forall w s. AltSwap -> RemoveParams -> Contract w s Text ()
 remove altswap RemoveParams{..} = do
     (_, (oref, o, lp, liquidity)) <- findAltSwapFactoryAndPool altswap rpCoinA rpCoinB
-    pkh                           <- Plutus.Contract.ownPubKeyHash
+    pkh                           <- Plutus.Contract.ownPaymentPubKeyHash
     when (rpDiff < 1 || rpDiff >= liquidity) $ throwError "removed liquidity must be positive and less than total liquidity"
     let swpInst      = aswpInstance altswap
         swpScript    = aswpScript altswap
@@ -312,7 +316,7 @@ remove altswap RemoveParams{..} = do
                    Constraints.otherScript swpScript                  <>
                    Constraints.mintingPolicy (liquidityPolicy altswap)   <>
                    Constraints.unspentOutputs (Map.singleton oref o) <>
-                   Constraints.ownPubKeyHash pkh
+                   Constraints.ownPaymentPubKeyHash pkh
 
         tx       = Constraints.mustPayToTheScript dat val          <>
                    Constraints.mustMintValue (negate lVal)        <>
@@ -326,7 +330,7 @@ remove altswap RemoveParams{..} = do
 -- | Adds some liquidity to an existing liquidity pool in exchange for newly minted liquidity tokens.
 add :: forall w s. AltSwap -> AddParams -> Contract w s Text ()
 add aswp AddParams{..} = do
-    pkh                           <- Plutus.Contract.ownPubKeyHash
+    pkh                           <- Plutus.Contract.ownPaymentPubKeyHash
     (_, (oref, o, lp, liquidity)) <- findAltSwapFactoryAndPool aswp apCoinA apCoinB
     when (apAmountA < 0 || apAmountB < 0) $ throwError "amounts must not be negative"
     let outVal = view ciTxOutValue o
@@ -352,7 +356,7 @@ add aswp AddParams{..} = do
         lookups  = Constraints.typedValidatorLookups swpInst             <>
                    Constraints.otherScript swpScript                     <>
                    Constraints.mintingPolicy (liquidityPolicy aswp)       <>
-                   Constraints.ownPubKeyHash pkh                        <>
+                   Constraints.ownPaymentPubKeyHash pkh                        <>
                    Constraints.unspentOutputs (Map.singleton oref o)
 
         tx       = Constraints.mustPayToTheScript dat val          <>
@@ -384,7 +388,7 @@ swap aswp SwapParams{..} = do
         let outA = Monetary.Amount $ findSwapB oldA oldB spAmountB
         when (outA == 0) $ throwError "no payout"
         return (oldA - outA, oldB + spAmountB)
-    pkh <- Plutus.Contract.ownPubKeyHash
+    pkh <- Plutus.Contract.ownPaymentPubKeyHash
 
     logInfo @String $ printf "oldA = %d, oldB = %d, old product = %d, newA = %d, newB = %d, new product = %d" oldA oldB (Monetary.swpAmount oldA * Monetary.swpAmount oldB) newA newB (Monetary.swpAmount newA * Monetary.swpAmount newB)
 
@@ -394,7 +398,7 @@ swap aswp SwapParams{..} = do
         lookups = Constraints.typedValidatorLookups inst                 <>
                   Constraints.otherScript (Scripts.validatorScript inst) <>
                   Constraints.unspentOutputs (Map.singleton oref o)      <>
-                  Constraints.ownPubKeyHash pkh
+                  Constraints.ownPaymentPubKeyHash pkh
 
         tx      = mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData Swap) <>
                   Constraints.mustPayToTheScript (Pool lp liquidity) val
@@ -438,8 +442,8 @@ pools aswp = do
 -- | Gets the caller's funds.
 funds :: forall w s. Contract w s Text Value
 funds = do
-    pkh <- Plutus.Contract.ownPubKeyHash
-    os  <- map snd . Map.toList <$> utxosAt (pubKeyHashAddress pkh)
+    pkh <- Plutus.Contract.ownPaymentPubKeyHash
+    os  <- map snd . Map.toList <$> utxosAt (pubKeyHashAddress pkh Nothing)
     return $ mconcat [view ciTxOutValue o | o <- os]
 
 getAltSwapDatum :: ChainIndexTxOut -> Contract w s Text AltSwapDatum
