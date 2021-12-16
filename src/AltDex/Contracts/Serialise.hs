@@ -25,7 +25,7 @@ module AltDex.Contracts.Serialise(
       writeTokensMintingScript, showMeTehDatum, tokensCurrency,
       tokensMintingScript,
       tokensMintingValidatorAsCBOR,
-      swapFactoryCoin,
+      swapFactoryCoin, swapFactoryTxOutRef,
       showSwapFactoryEmptyData, showSwapFactoryExampleDataJSON,
       swapFactoryInstance, swapFactoryNFTCurrencySymbol,
       swapInstance,
@@ -83,8 +83,7 @@ import qualified Plutus.Trace.Emulator          as Emulator
 
 import           Control.Monad                  (forever)
 
-import           Cardano.Api.Shelley            (PlutusScript (..),
-                                                 PlutusScriptV1, ScriptData)
+import           Cardano.Api.Shelley            (PlutusScript (..), PlutusScriptV1, ScriptData)
 import           Codec.Serialise
 import qualified Data.ByteString.Lazy           as LB
 import qualified Data.ByteString.Short          as SBS
@@ -179,7 +178,7 @@ aswpTokenName :: TokenName
 aswpTokenName = "SWP"
 
 swapFactoryTxOutRef :: TxOutRef
-swapFactoryTxOutRef = TxOutRef "48241b3cd8b04821b3d18d86c58581f7aa78cd3e143be22bfaca866dd3c68026" 0
+swapFactoryTxOutRef = TxOutRef "8b3ce8b14158885875b4e70240786a0f077803f5fe48fad25034c287424f8783" 0
 
 swapFactoryNFTCurrency :: FiniteCurency
 swapFactoryNFTCurrency =  Monetary.mkCurrency swapFactoryTxOutRef [(aswpTokenName, 1)]
@@ -197,7 +196,7 @@ swapFactoryValue :: Value
 swapFactoryValue = Monetary.unitValue swapFactoryCoin
 
 swapFactoryNFTMintingValidator :: FiniteCurency -> Validator
-swapFactoryNFTMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy'
+swapFactoryNFTMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy
 
 swapFactoryNFTMintingValidatorAsCBOR :: LB.ByteString
 swapFactoryNFTMintingValidatorAsCBOR = serialise $ swapFactoryNFTMintingValidator swapFactoryNFTCurrency
@@ -309,7 +308,7 @@ writeSwapScript = writeScriptToFile "altswap.plutus" plutusMintingScript swapScr
 -- Create LP Output(s) Datums
 ----------------------------------------
 afterCreatePoolDatum :: Swap.AltSwapDatum
-afterCreatePoolDatum = Swap.Pool lp (Monetary.Amount 100)
+afterCreatePoolDatum = Swap.Pool lp (Monetary.Amount 1415)
 
 afterCreatePoolData :: ScriptData
 afterCreatePoolData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData afterCreatePoolDatum)
@@ -389,5 +388,5 @@ writeScriptToFile outFile plutusScript scriptData = do
 main :: Haskell.IO ()
 main = () Haskell.<$ seq
   where
-    writers = [writeSwapFactoryNFTMintingScript, writeSwapScript]
+    writers = [writeSwapFactoryNFTMintingScript, writeLpMintingScript, writeSwapScript]
     seq = Haskell.sequence writers

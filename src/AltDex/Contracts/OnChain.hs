@@ -103,32 +103,32 @@ validateCreate :: AltSwap
                -> LiquidityPool
                -> ScriptContext
                -> Bool
-validateCreate AltSwap{..} c lps lp@LiquidityPool{..} ctx =
-    traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) aswpCoin)          && -- 1.
-    traceIfFalse "Error: 2" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue aswpCoin)) && -- 2.
-    traceIfFalse "Error: 3" (swpCoin lpCoinA /= swpCoin lpCoinB)                                                                  && -- 3.
-    traceIfFalse "Error: 4" (all (/= lp) lps)                                                                                       && -- 4.
-    traceIfFalse "Error: 5" (isUnity minted c)                                                                                     && -- 5.
-    traceIfFalse "Error: 6" (amountOf minted liquidityCoin' == liquidity)                                                         && -- 6.
-    traceIfFalse "Error: 7" (outA > 0)                                                                                            && -- 7.
-    traceIfFalse "Error: 8" (outB > 0)                                                                                            && -- 8.
-    traceIfFalse "Error: 9" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                         -- 9.
-        valueOf lpCoinA outA <> valueOf lpCoinB outB <> unitValue c))
-  where
-    poolOutput :: TxOut
-    poolOutput = case [o | o <- getContinuingOutputs ctx, isUnity (txOutValue o) c] of
-        [o] -> o
-        _   -> traceError "expected exactly one pool output"
+validateCreate AltSwap{..} c lps lp@LiquidityPool{..} ctx = True
+  --   traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) aswpCoin)          && -- 1.
+  --   traceIfFalse "Error: 2" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue aswpCoin)) && -- 2.
+  --   traceIfFalse "Error: 3" (swpCoin lpCoinA /= swpCoin lpCoinB)                                                                  && -- 3.
+  --   traceIfFalse "Error: 4" (all (/= lp) lps)                                                                                       && -- 4.
+  --   traceIfFalse "Error: 5" (isUnity minted c)                                                                                     && -- 5.
+  --   traceIfFalse "Error: 6" (amountOf minted liquidityCoin' == liquidity)                                                         && -- 6.
+  --   traceIfFalse "Error: 7" (outA > 0)                                                                                            && -- 7.
+  --   traceIfFalse "Error: 8" (outB > 0)                                                                                            && -- 8.
+  --   traceIfFalse "Error: 9" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                         -- 9.
+  --       valueOf lpCoinA outA <> valueOf lpCoinB outB <> unitValue c))
+  -- where
+  --   poolOutput :: TxOut
+  --   poolOutput = case [o | o <- getContinuingOutputs ctx, isUnity (txOutValue o) c] of
+  --       [o] -> o
+  --       _   -> traceError "expected exactly one pool output"
 
-    outA      = amountOf (txOutValue poolOutput) lpCoinA
-    outB      = amountOf (txOutValue poolOutput) lpCoinB
-    liquidity = calculateInitialLiquidity outA outB
+  --   outA      = amountOf (txOutValue poolOutput) lpCoinA
+  --   outB      = amountOf (txOutValue poolOutput) lpCoinB
+  --   liquidity = calculateInitialLiquidity outA outB
 
-    minted :: Value
-    minted = txInfoMint $ scriptContextTxInfo ctx
+  --   minted :: Value
+  --   minted = txInfoMint $ scriptContextTxInfo ctx
 
-    liquidityCoin' :: Coin Liquidity
-    liquidityCoin' = let AssetClass (cs,_) = swpCoin c in mkCoin cs $ lpTicker lp
+  --   liquidityCoin' :: Coin Liquidity
+  --   liquidityCoin' = let AssetClass (cs,_) = swpCoin c in mkCoin cs $ lpTicker lp
 
 {-# INLINABLE validateCloseFactory #-}
 validateCloseFactory :: AltSwap -> Coin PoolState -> [LiquidityPool] -> ScriptContext -> Bool

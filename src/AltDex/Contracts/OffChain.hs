@@ -103,14 +103,14 @@ data UserContractState =
     deriving (Show, Generic, FromJSON, ToJSON)
 
 aswpInstance :: AltSwap -> Scripts.TypedValidator AltXChange
-aswpInstance aswp = Scripts.mkTypedValidator @AltXChange
+aswpInstance altswap = Scripts.mkTypedValidator @AltXChange
     ($$(PlutusTx.compile [|| mkAltSwapValidator ||])
-        `PlutusTx.applyCode` PlutusTx.liftCode aswp
+        `PlutusTx.applyCode` PlutusTx.liftCode altswap
         `PlutusTx.applyCode` PlutusTx.liftCode c)
      $$(PlutusTx.compile [|| wrap ||])
   where
     c :: Monetary.Coin PoolState
-    c = poolStateCoin aswp
+    c = poolStateCoin altswap
 
     wrap = Scripts.wrapValidator @AltSwapDatum @AltSwapAction
 
@@ -130,9 +130,9 @@ liquidityCurrency :: AltSwap -> CurrencySymbol
 liquidityCurrency = scriptCurrencySymbol . liquidityPolicy
 
 liquidityPolicy :: AltSwap -> MintingPolicy
-liquidityPolicy aswp = mkMintingPolicyScript $
+liquidityPolicy altswap = mkMintingPolicyScript $
     $$(PlutusTx.compile [|| \u t -> Scripts.wrapMintingPolicy (validateLiquidityMinting u t) ||])
-        `PlutusTx.applyCode` PlutusTx.liftCode aswp
+        `PlutusTx.applyCode` PlutusTx.liftCode altswap
         `PlutusTx.applyCode` PlutusTx.liftCode poolStateTokenName
 
 -- | Gets the liquidity token for a given liquidity pool.
