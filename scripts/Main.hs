@@ -26,25 +26,12 @@ import qualified AltDex.Contracts.Serialise     as CS
 import Prelude
 import           Ledger.Index                        (ValidatorMode(..))
 
--- import qualified Plutus.Contracts.Crowdfunding  as Crowdfunding
 import   qualified  AltDex.Contracts.MintTrace      as MintTokensTrace
--- import qualified Spec.Currency                  as Currency
--- import qualified Spec.Escrow                    as Escrow
--- import qualified Spec.Future                    as Future
--- import qualified Spec.GameStateMachine          as GameStateMachine
--- import qualified Spec.MultiSig                  as MultiSig
--- import qualified Spec.MultiSigStateMachine      as MultiSigStateMachine
--- import qualified Spec.PingPong                  as PingPong
--- import qualified Spec.Prism                     as Prism
--- import qualified Spec.PubKey                    as PubKey
--- import qualified Spec.Stablecoin                as Stablecoin
--- import qualified Spec.TokenAccount              as TokenAccount
--- import qualified Spec.Vesting                   as Vesting
 
 main :: IO ()
 main = do
     args <- getArgs
-    case args ofpl
+    case args of
         [script_path] -> writeScripts script_path
         _             -> traverse_ putStrLn [
             "usage: scripts SCRIPT_PATH",

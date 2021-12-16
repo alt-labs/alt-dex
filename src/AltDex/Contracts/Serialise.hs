@@ -32,7 +32,7 @@ module AltDex.Contracts.Serialise(
       validatorAsCBOR,
       swapTokenScript, swapTokenScriptShortBs,
       writeSwapScript, writeSwapFactoryNFTMintingScript,
-      lp, lpToken, lpCoin, mintLpTokensData, writeLpMintingScript,
+      lp, lpToken, lpCoin, lpStateCoin, mintLpTokensData, writeLpMintingScript,
       showSwapRedeemerJSON, showAfterCreatePoolDatum, showAfterCreatePooFactorylDatum,
       main
     ) where
@@ -179,7 +179,7 @@ aswpTokenName :: TokenName
 aswpTokenName = "SWP"
 
 swapFactoryTxOutRef :: TxOutRef
-swapFactoryTxOutRef = TxOutRef "770a35fd95c9360a765d0d89a14850eae64cbcf965201522009554284ba3ac12" 0
+swapFactoryTxOutRef = TxOutRef "48241b3cd8b04821b3d18d86c58581f7aa78cd3e143be22bfaca866dd3c68026" 0
 
 swapFactoryNFTCurrency :: FiniteCurency
 swapFactoryNFTCurrency =  Monetary.mkCurrency swapFactoryTxOutRef [(aswpTokenName, 1)]
@@ -197,7 +197,7 @@ swapFactoryValue :: Value
 swapFactoryValue = Monetary.unitValue swapFactoryCoin
 
 swapFactoryNFTMintingValidator :: FiniteCurency -> Validator
-swapFactoryNFTMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy
+swapFactoryNFTMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy'
 
 swapFactoryNFTMintingValidatorAsCBOR :: LB.ByteString
 swapFactoryNFTMintingValidatorAsCBOR = serialise $ swapFactoryNFTMintingValidator swapFactoryNFTCurrency
@@ -215,11 +215,17 @@ writeSwapFactoryNFTMintingScript = writeScriptToFile "altswap-nft.plutus" swapFa
 srkiCurrencySymbol :: CurrencySymbol
 srkiCurrencySymbol = "ace06a09ce02f65f6a292e54871a2d827066d62933195c33eab4a468"
 
+-- lp :: LP.LiquidityPool
+-- lp = LP.LiquidityPool coinA coinB
+--   where
+--     coinA = Monetary.mkCoin srkiCurrencySymbol zltTokenName
+--     coinB = Monetary.mkCoin srkiCurrencySymbol dktTokenName
+
 lp :: LP.LiquidityPool
 lp = LP.LiquidityPool coinA coinB
   where
-    coinA = Monetary.mkCoin srkiCurrencySymbol zltTokenName
-    coinB = Monetary.mkCoin srkiCurrencySymbol dktTokenName
+    coinA = Monetary.mkCoin tokensCurrencySymbol tokenOneName
+    coinB = Monetary.mkCoin tokensCurrencySymbol tokenTwoName
 
 lpToken :: TokenName
 lpToken = LP.lpTicker lp

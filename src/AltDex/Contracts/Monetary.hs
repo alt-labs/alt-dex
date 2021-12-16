@@ -26,7 +26,7 @@ module AltDex.Contracts.Monetary(
     , amountOf
     , unitValue
     , mkCoin
-    , monetaryPolicy
+    , monetaryPolicy, monetaryPolicy'
     , isUnity
     , valueOf
     , mintContract
@@ -98,7 +98,14 @@ import           Cardano.Api.Shelley        (ScriptDataJsonSchema (..),
 import qualified Cardano.Ledger.Alonzo.Data as Alonzo
 import qualified Plutus.V1.Ledger.Api       as Plutus
 
+import Data.String
+import qualified PlutusTx.Builtins as BI
+import qualified Data.Text.Encoding as Data.String
+import Data.Text.Encoding
+import qualified Data.Text as TE
+
 -- | SwapCoin
+
 data SwapCoin = SwapCoin deriving (Haskell.Show, Haskell.Eq, Generic)
 PlutusTx.makeIsDataIndexed ''SwapCoin [('SwapCoin, 0)]
 PlutusTx.makeLift ''SwapCoin
@@ -162,7 +169,32 @@ validate c@(LimitedSupplyCurrency (refHash, refIdx) _) _ ctx@V.ScriptContext{V.s
           in traceIfFalse "Value forged different from expected" v
       txOutputSpent =
           let v = V.spendsOutput txinfo refHash refIdx
-          in  traceIfFalse "Pending transaction does not spend the designated transaction output" v
+          in  traceIfFalse "Pending transaction does not spend the designated transaction output"  v
+
+{-# INLINABLE validate' #-}
+validate' :: LimitedSupplyCurrency -> BuiltinString-> () -> V.ScriptContext -> Bool
+validate' c@(LimitedSupplyCurrency (refHash, refIdx) _) err _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+  forgeOK && txOutputSpent
+  where
+      ownSymbol = V.ownCurrencySymbol ctx
+      forged = V.txInfoMint txinfo
+      expected = unwrapCurrencyValue ownSymbol c
+      forgeOK =
+          let v = expected == forged
+          in traceIfFalse "Value forged different from expected" v
+      txOutputSpent =
+          let v = V.spendsOutput txinfo refHash refIdx
+          in  traceIfFalse err v
+
+toBS :: Haskell.String -> BuiltinString
+toBS =
+    BI.decodeUtf8
+    . BI.unsafeDataAsB
+    . PlutusTx.dataToBuiltinData
+    . PlutusTx.B
+    . Data.String.encodeUtf8
+
+    . TE.pack
 
 mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> LimitedSupplyCurrency
 mkCurrency (TxOutRef h i) amts =
@@ -189,6 +221,26 @@ monetaryPolicy cur = mkMintingPolicyScript $
     $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . validate ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode cur
+
+monetaryPolicy' :: LimitedSupplyCurrency -> MintingPolicy
+monetaryPolicy' cur@(LimitedSupplyCurrency (refHash, _) _) = mkMintingPolicyScript $
+        $$(PlutusTx.compile [|| \c e -> Scripts.wrapMintingPolicy  (validate' c e)||])
+            `PlutusTx.applyCode` PlutusTx.liftCode cur
+            `PlutusTx.applyCode` PlutusTx.liftCode err
+
+    where
+        err = toBS $ "Pending transaction does not spend the designated transaction output: "  ++ Haskell.show (Plutus.getTxId refHash) --(unpack $ Data.Text.Encoding.decodeUtf8 $ Plutus.getTxId refHash)
+
+-- aswpInstance aswp = Scripts.mkTypedValidator @AltXChange
+--     ($$(PlutusTx.compile [|| mkAltSwapValidator ||])
+--         `PlutusTx.applyCode` PlutusTx.liftCode aswp
+--         `PlutusTx.applyCode` PlutusTx.liftCode c)
+--      $$(PlutusTx.compile [|| wrap ||])
+--   where
+--     c :: Monetary.Coin PoolState
+--     c = poolStateCoin aswp
+
+    -- wrap = Scripts.wrapValidator @AltSwapDatum @AltSwapAction
 
 newtype CurrencyError =
     CurContractError ContractError

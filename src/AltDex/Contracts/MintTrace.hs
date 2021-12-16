@@ -26,7 +26,7 @@ import Plutus.Contracts.Uniswap.OffChain as OffChain
 import Plutus.Contracts.Uniswap.Types as Types
 import Plutus.Trace.Emulator (EmulatorRuntimeError (GenericError), EmulatorTrace)
 import Plutus.Trace.Emulator qualified as Emulator
-import Wallet.Emulator (Wallet (..), knownWallet, knownWallets, walletPubKeyHash)
+import Wallet.Emulator (Wallet (..), knownWallet, knownWallets, mockWalletPaymentPubKeyHash)
 import Prelude
 
 import Data.Text
@@ -66,7 +66,7 @@ mintTokensTrace = do
     -- _ <- Emulator.waitNSlots 5
     pure ()
   where
-    pkh = walletPubKeyHash $ knownWallet 1
+    pkh = mockWalletPaymentPubKeyHash $ knownWallet 1
 
     -- mintC :: forall w s e. ((Cash.AsCurrencyError e, Data.String.IsString Cash.CurrencyError)) => Contract w s Cash.CurrencyError Cash.LimitedSupplyCurrency
     mintC :: Contract (Maybe (Semigroup.Last Cash.LimitedSupplyCurrency)) Cash.CurrencySchema Cash.CurrencyError Cash.LimitedSupplyCurrency

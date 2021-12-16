@@ -105,15 +105,15 @@ validateCreate :: AltSwap
                -> Bool
 validateCreate AltSwap{..} c lps lp@LiquidityPool{..} ctx =
     traceIfFalse "AltSwap coin not present" (isUnity (valueWithin $ findOwnInput' ctx) aswpCoin)          && -- 1.
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue aswpCoin) && -- 2.
-    (swpCoin lpCoinA /= swpCoin lpCoinB)                                                                  && -- 3.
-    all (/= lp) lps                                                                                       && -- 4.
-    isUnity minted c                                                                                      && -- 5.
-    (amountOf minted liquidityCoin' == liquidity)                                                         && -- 6.
-    (outA > 0)                                                                                            && -- 7.
-    (outB > 0)                                                                                            && -- 8.
-    Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                         -- 9.
-        valueOf lpCoinA outA <> valueOf lpCoinB outB <> unitValue c)
+    traceIfFalse "Error: 2" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Factory $ lp : lps) $ unitValue aswpCoin)) && -- 2.
+    traceIfFalse "Error: 3" (swpCoin lpCoinA /= swpCoin lpCoinB)                                                                  && -- 3.
+    traceIfFalse "Error: 4" (all (/= lp) lps)                                                                                       && -- 4.
+    traceIfFalse "Error: 5" (isUnity minted c)                                                                                     && -- 5.
+    traceIfFalse "Error: 6" (amountOf minted liquidityCoin' == liquidity)                                                         && -- 6.
+    traceIfFalse "Error: 7" (outA > 0)                                                                                            && -- 7.
+    traceIfFalse "Error: 8" (outB > 0)                                                                                            && -- 8.
+    traceIfFalse "Error: 9" (Constraints.checkOwnOutputConstraint ctx (OutputConstraint (Pool lp liquidity) $                         -- 9.
+        valueOf lpCoinA outA <> valueOf lpCoinB outB <> unitValue c))
   where
     poolOutput :: TxOut
     poolOutput = case [o | o <- getContinuingOutputs ctx, isUnity (txOutValue o) c] of
@@ -275,7 +275,7 @@ mkAltSwapValidator altswap coin (Factory lps) Close       ctx = validateCloseFac
 mkAltSwapValidator altswap _    (Pool _  _)   Close       ctx = validateClosePool altswap ctx
 mkAltSwapValidator _       coin (Pool lp a)   Remove      ctx = validateRemove coin lp a ctx
 mkAltSwapValidator _       coin (Pool lp a)   Add         ctx = validateAdd coin lp a ctx
-mkAltSwapValidator _       _  _               _           _   = False
+mkAltSwapValidator _       _  _               _           _   = traceIfFalse "Meow" False
 
 {-# INLINABLE validateLiquidityMinting #-}
 validateLiquidityMinting :: AltSwap -> TokenName -> () -> ScriptContext -> Bool
