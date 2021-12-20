@@ -29,7 +29,6 @@ import           Plutus.Contract
 
 import           AltDex.Contracts.Base
 import qualified AltDex.Contracts.Monetary        as Monetary
-import           AltDex.Contracts.OnChain         (mkAltSwapValidator, validateLiquidityMinting)
 import           AltDex.Contracts.LiquidityPool
 import           AltDex.Contracts.Swap
 import           AltDex.Contracts.Common
@@ -60,12 +59,13 @@ getAddress =
     Just a -> pure a
     _ -> Contract.throwError "Can not parse source UTXO address for minting TxOutRef owner"
 
+
 demoMintingContract :: forall w s e. (AsCurrencyError e, IsString CurrencyError)
     => PubKeyHash
     -> [(TokenName, Integer)]
     -> Contract w s e LimitedSupplyCurrency
 demoMintingContract pk amounts = mapError (review _CurrencyError) $ do
-    txOutRef <- getUnspentOutput
+    txOutRef <- HC.getUnspentOutput'
     addr <- getAddress
     utxos <- utxosAt addr
 

@@ -1,12 +1,2 @@
 cradle:
   cabal:
-    - path: "./pab"
-      component: "exe:alt-dex-pab"
-    # - path: "./app"
-    #   component: "exe:alt-dex-purple"
-    - path: "./src"
-      component: "lib:alt-dex"
-    - path: "./roundtrip-demo"
-      component: "roundtrip-demo"
-    # - path: "./specs"
-    #   component: "test-suite:dex-swap-test"

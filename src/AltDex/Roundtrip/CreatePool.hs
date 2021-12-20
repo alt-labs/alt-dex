@@ -34,7 +34,6 @@ import           Plutus.Contract
 import           AltDex.Contracts.Base
 import qualified AltDex.Contracts.Monetary        as Monetary
 import           AltDex.Contracts.Monetary        (A, B)
-import           AltDex.Contracts.OnChain         (mkAltSwapValidator, validateLiquidityMinting)
 import           AltDex.Contracts.LiquidityPool
 import           AltDex.Contracts.Swap
 import           AltDex.Contracts.Common
@@ -61,24 +60,27 @@ create altswap lp = do
       let liquidity = calculateInitialLiquidity cpAmountA cpAmountB
           lp        = LiquidityPool {lpCoinA = cpCoinA, lpCoinB = cpCoinB}
 
-      let swpInst  = aswpInstance altswap
+      let swpInst   = aswpInstance altswap
           swpScript = aswpScript altswap
-          swpDat1  = Factory $ lp : lps
-          swpDat2  = Pool lp liquidity
-          psC      = poolStateCoin altswap
-          lC       = Monetary.mkCoin (liquidityCurrency altswap) $ lpTicker lp
-          aswpVal  = Monetary.unitValue $ aswpCoin altswap
-          lpVal    = Monetary.valueOf cpCoinA cpAmountA <> Monetary.valueOf cpCoinB cpAmountB <> Monetary.unitValue psC
 
-          lookups  = Constraints.typedValidatorLookups swpInst        <>
-                    Constraints.otherScript swpScript                <>
-                    Constraints.mintingPolicy (liquidityPolicy altswap) <>
-                    Constraints.unspentOutputs (Map.singleton oref o)
+          swpDat1   = Factory $ lp : lps
+          swpDat2   = Pool lp liquidity
 
-          tx       = Constraints.mustPayToTheScript swpDat1 aswpVal                                     <>
-                    Constraints.mustPayToTheScript swpDat2 lpVal                                     <>
-                    Constraints.mustMintValue (Monetary.unitValue psC <> Monetary.valueOf lC liquidity)              <>
-                    Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Create lp)
+          psC       = poolStateCoin altswap
+
+          lC        = Monetary.mkCoin (liquidityCurrency altswap) $ lpTicker lp
+          aswpVal   = Monetary.unitValue $ aswpCoin altswap
+          lpVal     = Monetary.valueOf cpCoinA cpAmountA <> Monetary.valueOf cpCoinB cpAmountB <> Monetary.unitValue psC
+
+          lookups   = Constraints.typedValidatorLookups swpInst        <>
+                      Constraints.otherScript swpScript                <>
+                      Constraints.mintingPolicy (liquidityPolicy altswap) <>
+                      Constraints.unspentOutputs (Map.singleton oref o)
+
+          tx        = Constraints.mustPayToTheScript swpDat1 aswpVal                                     <>
+                      Constraints.mustPayToTheScript swpDat2 lpVal                                     <>
+                      Constraints.mustMintValue (Monetary.unitValue psC <> Monetary.valueOf lC liquidity)              <>
+                      Constraints.mustSpendScriptOutput oref (Redeemer $ PlutusTx.toBuiltinData $ Create lp)
 
       -- ledgerTx <- submitTxConstraintsWith lookups tx
 
