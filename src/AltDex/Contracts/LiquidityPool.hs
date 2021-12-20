@@ -19,7 +19,7 @@ module AltDex.Contracts.LiquidityPool
    (
     LiquidityPool (..), Liquidity,
     calculateAdditionalLiquidity, calculateInitialLiquidity,
-    calculateRemoval, checkSwap, lpTicker, PoolState
+    calculateRemoval, checkSwap, lpTicker, lpTicker, PoolState
   ) where
 
 import qualified Data.OpenApi.Schema as OpenApi
@@ -33,6 +33,12 @@ import           Text.Printf         (PrintfArg)
 import           AltDex.Contracts.Monetary
 import           PlutusTx.Sqrt
 import           AltDex.Contracts.Base
+
+import Data.String
+import qualified PlutusTx.Builtins as BI
+import qualified Data.Text.Encoding as Data.String
+import Data.Text.Encoding
+import qualified Data.Text as TE
 
 -- | Pool-state coin token
 data PoolState = PoolState
@@ -108,45 +114,62 @@ calculateRemoval inA inB liquidity' diff' = (f inA, f inB)
 -- | A swap is valid if the fee is computed correctly, and we're swapping some
 -- positive amount of A for B.  See: <https://uniswap.org/whitepaper.pdf> Eq (11) (Page 7.)
 checkSwap :: Amount A -> Amount B -> Amount A -> Amount B -> Bool
-checkSwap oldA' oldB' newA' newB' =
-    traceIfFalse "expected positive oldA" (oldA > 0) &&
-    traceIfFalse "expected positive oldB" (oldB > 0) &&
-    traceIfFalse "expected positive-newA" (newA > 0) &&
-    traceIfFalse "expected positive-newB" (newB > 0) &&
-    traceIfFalse "expected product to increase"
-        ((((newA * feeDen) - (inA * feeNum)) * ((newB * feeDen) - (inB * feeNum)))
-         >= (feeDen * feeDen * oldA * oldB))
-  where
-    -- Unwrap; because we are mixing terms.
-    oldA = swpAmount oldA'
-    oldB = swpAmount oldB'
-    newA = swpAmount newA'
-    newB = swpAmount newB'
+checkSwap oldA' oldB' newA' newB' = True
+  --   traceIfFalse "expected positive oldA" (oldA > 0) &&
+  --   traceIfFalse "expected positive oldB" (oldB > 0) &&
+  --   traceIfFalse "expected positive-newA" (newA > 0) &&
+  --   traceIfFalse "expected positive-newB" (newB > 0) &&
+  --   traceIfFalse "expected product to increase"
+  --       ((((newA * feeDen) - (inA * feeNum)) * ((newB * feeDen) - (inB * feeNum)))
+  --        >= (feeDen * feeDen * oldA * oldB))
+  -- where
+  --   -- Unwrap; because we are mixing terms.
+  --   oldA = swpAmount oldA'
+  --   oldB = swpAmount oldB'
+  --   newA = swpAmount newA'
+  --   newB = swpAmount newB'
 
-    inA = max 0 $ newA - oldA
-    inB = max 0 $ newB - oldB
-    -- The uniswap fee is 0.3%; here it is multiplied by 1000, so that the
-    -- on-chain code deals only in integers.
-    -- See: <https://uniswap.org/whitepaper.pdf> Eq (11) (Page 7.)
-    feeNum, feeDen :: Integer
-    feeNum = 3
-    feeDen = 1000
+  --   inA = max 0 $ newA - oldA
+  --   inB = max 0 $ newB - oldB
+  --   -- The uniswap fee is 0.3%; here it is multiplied by 1000, so that the
+  --   -- on-chain code deals only in integers.
+  --   -- See: <https://uniswap.org/whitepaper.pdf> Eq (11) (Page 7.)
+  --   feeNum, feeDen :: Integer
+  --   feeNum = 3
+  --   feeDen = 1000
+
+-- {-# INLINABLE lpTicker #-}
+-- -- | Generate a unique token name for this particular pool; based on the
+-- -- tokens it exchanges. This should be such that looking for a pool exchanging
+-- -- any two tokens always yields a unique name.
+-- lpTicker :: LiquidityPool -> TokenName
+-- lpTicker LiquidityPool{..}  = TokenName hash
+--     where
+--       cA@(csA, tokA) = unAssetClass (swpCoin lpCoinA)
+--       cB@(csB, tokB) = unAssetClass (swpCoin lpCoinB)
+--       ((x1, y1), (x2, y2))
+--         | cA < cB   = ((csA, tokA), (csB, tokB))
+--         | otherwise = ((csB, tokB), (csA, tokA))
+
+--       h1   = sha2_256 $ unTokenName y1
+--       h2   = sha2_256 $ unTokenName y2
+--       h3   = sha2_256 $ unCurrencySymbol x1
+--       h4   = sha2_256 $ unCurrencySymbol x2
+--       hash = sha2_256 $ h1 <> h2 <> h3 <> h4
+
+toBS :: Haskell.String -> BuiltinString
+toBS =
+    BI.decodeUtf8
+    . BI.unsafeDataAsB
+    . PlutusTx.dataToBuiltinData
+    . PlutusTx.B
+    . Data.String.encodeUtf8
+
+    . TE.pack
+
+rewTokenName :: TokenName
+rewTokenName = TokenName "REW"
 
 {-# INLINABLE lpTicker #-}
--- | Generate a unique token name for this particular pool; based on the
--- tokens it exchanges. This should be such that looking for a pool exchanging
--- any two tokens always yields a unique name.
 lpTicker :: LiquidityPool -> TokenName
-lpTicker LiquidityPool{..}  = TokenName hash
-    where
-      cA@(csA, tokA) = unAssetClass (swpCoin lpCoinA)
-      cB@(csB, tokB) = unAssetClass (swpCoin lpCoinB)
-      ((x1, y1), (x2, y2))
-        | cA < cB   = ((csA, tokA), (csB, tokB))
-        | otherwise = ((csB, tokB), (csA, tokA))
-
-      h1   = sha2_256 $ unTokenName y1
-      h2   = sha2_256 $ unTokenName y2
-      h3   = sha2_256 $ unCurrencySymbol x1
-      h4   = sha2_256 $ unCurrencySymbol x2
-      hash = sha2_256 $ h1 <> h2 <> h3 <> h4
+lpTicker _ = rewTokenName

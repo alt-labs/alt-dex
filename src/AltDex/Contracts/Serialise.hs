@@ -129,7 +129,7 @@ tokenTwoName :: TokenName
 tokenTwoName = "SRK"
 
 tokensMinterTxOutRef :: TxOutRef
-tokensMinterTxOutRef = TxOutRef "f58807ef7ce16c95f681b29adac91d08c2550cacfba94d2768c3a5fb29e59e45" 0
+tokensMinterTxOutRef = TxOutRef "86616b7707fc9e08ff76e54b5e728933f59c5f16b826174f45bdabbc02ad0de9" 0
 
 -- tokensCurrency :: FiniteCurency
 -- tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
@@ -178,7 +178,7 @@ aswpTokenName :: TokenName
 aswpTokenName = "SWP"
 
 swapFactoryTxOutRef :: TxOutRef
-swapFactoryTxOutRef = TxOutRef "8b3ce8b14158885875b4e70240786a0f077803f5fe48fad25034c287424f8783" 0
+swapFactoryTxOutRef = TxOutRef "e899b80b6e68f36f655e1877733a6391b40b5c9a8f197d0a37b15b6940a3436b" 0
 
 swapFactoryNFTCurrency :: FiniteCurency
 swapFactoryNFTCurrency =  Monetary.mkCurrency swapFactoryTxOutRef [(aswpTokenName, 1)]
@@ -211,8 +211,8 @@ writeSwapFactoryNFTMintingScript = writeScriptToFile "altswap-nft.plutus" swapFa
 -- Liquidity Pool Minting Script
 ----------------------------------------------------------------------------------------
 
-srkiCurrencySymbol :: CurrencySymbol
-srkiCurrencySymbol = "ace06a09ce02f65f6a292e54871a2d827066d62933195c33eab4a468"
+-- srkiCurrencySymbol :: CurrencySymbol
+-- srkiCurrencySymbol = "ace06a09ce02f65f6a292e54871a2d827066d62933195c33eab4a468"
 
 -- lp :: LP.LiquidityPool
 -- lp = LP.LiquidityPool coinA coinB
