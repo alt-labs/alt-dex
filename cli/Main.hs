@@ -1,16 +1,18 @@
 module Main (main) where
 
-import           System.Environment (getArgs, getEnv)
-import           Control.Exception (try, handle, handleJust, throw)
-import           Control.Monad.Reader
-import           Control.Monad.Except
-import           Cardano.Api
-import           qualified Cardano.Api.Shelley
-import           Cardano.CLI.Run (renderClientCommandError, runClientCommand, ClientCommand (ShelleyCommand))
-import           Prelude
-import           System.IO.Extra (putStrLn)
-import           AltDex.CLI.Common
+import System.Environment (getArgs, getEnv)
+import Control.Exception (try, handle, handleJust, throw)
+import Control.Monad.Reader
+import Control.Monad.Except
+import Cardano.Api
+import qualified Cardano.Api.Shelley
+import Cardano.CLI.Run (renderClientCommandError, runClientCommand, ClientCommand (ShelleyCommand))
+import Prelude
+import System.IO.Extra (putStrLn)
+import AltDex.CLI.Common
+import AltDex.CLI.Environment
 import AltDex.CLI.Error
+import AltDex.CLI.Node
 
 main :: IO ()
 main = do
@@ -22,7 +24,8 @@ main = do
       return $ "Error reading socat: " ++ show e
     Right s -> pure s
   putStrLn $ "[Found socket] = " ++ socketPath
-  let conn  = localNodeConnInfo socketPath
+  let conn  = testnetLocalNodeConnInfo socketPath
+  cardanoEnvironment <- getTestnetEnvironmment 1097911063
 
   let nargs = length args
   case nargs of
@@ -30,6 +33,7 @@ main = do
     _ ->
       case head args of
         "conn:check" -> runConnCheck conn
+        "sync:status" -> showSyncStatus cardanoEnvironment
         "mint" -> putStrLn "MintEm' all"
         _ -> showHelp
 
@@ -64,7 +68,3 @@ runConnCheck conn = do
     catcher e = case e of
       SomeError _  ->Nothing
       _            -> Just "Node error or something"
-
-
-localNodeConnInfo :: FilePath -> LocalNodeConnectInfo CardanoMode
-localNodeConnInfo = LocalNodeConnectInfo (CardanoModeParams (EpochSlots 21600))  (Testnet  (NetworkMagic 1097911063))

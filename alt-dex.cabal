@@ -133,7 +133,9 @@ library
       AltDex.WalletLog
       AltDex.Contracts.MintTrace
       AltDex.CLI.Common
+      AltDex.CLI.Environment
       AltDex.CLI.Error
+      AltDex.CLI.Node
       -- AltDex.Roundtrip.PAB.Run
       -- AltDex.Roundtrip.PAB.Contracts
       -- AltDex.Roundtrip.Nami
@@ -165,7 +167,10 @@ library
       cardano-ledger-alonzo -any,
       plutus-ledger-api -any,
       cardano-api -any,
-      shh
+      ouroboros-consensus,
+      shh,
+      time,
+      iso8601-time
       -- plutus-use-cases -any
     hs-source-dirs: src
     default-language: Haskell2010
