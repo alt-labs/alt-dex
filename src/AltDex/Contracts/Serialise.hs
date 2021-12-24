@@ -21,10 +21,10 @@
 
 module AltDex.Contracts.Serialise(
       tokensMinterTxOutRef, tokensCurrencySymbol,
-      writeTokensMintingScript, writeTokensMintingScript', showMeTehDatum, tokensCurrency,
+      writeTokensMintingScript', showMeTehDatum, tokensCurrency,
       tokensMintingScript,
       tokensMintingValidatorAsCBOR,
-      swapFactoryCoin, swapFactoryTxOutRef,
+      swapFactoryCoin,
       showSwapFactoryEmptyData, showSwapFactoryExampleDataJSON,
       swapFactoryInstance, swapFactoryNFTCurrencySymbol,
       swapInstance,
@@ -101,7 +101,7 @@ import qualified AltDex.Contracts.Base          as Base
 import qualified AltDex.Contracts.LiquidityPool as LP
 
 import qualified AltDex.Contracts.Monetary      as Monetary
-import           AltDex.Contracts.Monetary      (FiniteCurency)
+import           AltDex.Contracts.Monetary      (FiniteCurrency)
 
 import qualified AltDex.Contracts.OffChain      as OffChain
 import qualified AltDex.Contracts.Swap          as Swap
@@ -119,7 +119,7 @@ tokenTwoName = "SRK"
 tokensMinterTxOutRef :: TxOutRef
 tokensMinterTxOutRef = TxOutRef "86616b7707fc9e08ff76e54b5e728933f59c5f16b826174f45bdabbc02ad0de9" 0
 
-tokensCurrency :: FiniteCurency
+tokensCurrency :: FiniteCurrency
 tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
     where
         tokens :: [(TokenName, Integer)]
@@ -133,16 +133,16 @@ tokensCurrencySymbol = Monetary.currencySymbol tokensCurrency
 mintTokensData :: ScriptData
 mintTokensData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData tokensCurrency)
 
-mintTokensData' :: FiniteCurency -> ScriptData
+mintTokensData' :: FiniteCurrency -> ScriptData
 mintTokensData' = fromPlutusData . Plutus.builtinDataToData . Plutus.toBuiltinData
 
 showMeTehDatum :: LB.ByteString
 showMeTehDatum =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema mintTokensData
 
-tokensMintingValidator :: FiniteCurency -> Validator
+tokensMintingValidator :: FiniteCurrency -> Validator
 tokensMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy
 
-tokensMintingScript :: FiniteCurency -> Script
+tokensMintingScript :: FiniteCurrency -> Script
 tokensMintingScript = unMintingPolicyScript . Monetary.monetaryPolicy
 
 tokensMintingValidatorAsCBOR :: LB.ByteString
@@ -151,54 +151,48 @@ tokensMintingValidatorAsCBOR = serialise $ tokensMintingValidator tokensCurrency
 tokensPlutusMintingScript :: PlutusScript PlutusScriptV1
 tokensPlutusMintingScript = PlutusScriptSerialised . SBS.toShort $ LB.toStrict tokensMintingValidatorAsCBOR
 
-tokensMintingValidatorAsCBOR' :: FiniteCurency -> LB.ByteString
+tokensMintingValidatorAsCBOR' :: FiniteCurrency -> LB.ByteString
 tokensMintingValidatorAsCBOR' = serialise . tokensMintingValidator
 
-tokensPlutusMintingScript' :: FiniteCurency -> PlutusScript PlutusScriptV1
+tokensMintingShortBs :: FiniteCurrency -> SBS.ShortByteString
+tokensMintingShortBs = SBS.toShort . LB.toStrict . tokensMintingValidatorAsCBOR'
+
+tokensPlutusMintingScript' :: FiniteCurrency -> PlutusScript PlutusScriptV1
 tokensPlutusMintingScript' = PlutusScriptSerialised . SBS.toShort . LB.toStrict . tokensMintingValidatorAsCBOR'
 
-writeTokensMintingScript :: Haskell.IO ()
-writeTokensMintingScript = writeScriptToFile "altswap-tokens.plutus" tokensPlutusMintingScript mintTokensData
-
-writeTokensMintingScript' :: FiniteCurency -> Haskell.String -> Haskell.IO ()
+writeTokensMintingScript' :: FiniteCurrency -> Haskell.String -> Haskell.IO ()
 writeTokensMintingScript' cur outFilepath = do
-  writeScriptToFile outFilepath (tokensPlutusMintingScript' cur) (mintTokensData' cur)
+  writeScriptToFile outFilepath (tokensPlutusMintingScript' cur) (mintTokensData' cur) (tokensMintingShortBs  cur)
 
 -------------------------------------------------------------------------------
 -- SWAP NFT MINTING SCRIPT
 -------------------------------------------------------------------------------
-aswpTokenName :: TokenName
-aswpTokenName = "SWP"
+swapFactoryNFTCurrencySymbol :: FiniteCurrency -> CurrencySymbol
+swapFactoryNFTCurrencySymbol = Monetary.currencySymbol
 
-swapFactoryTxOutRef :: TxOutRef
-swapFactoryTxOutRef = TxOutRef "e899b80b6e68f36f655e1877733a6391b40b5c9a8f197d0a37b15b6940a3436b" 0
+swapFactoryNFTData :: FiniteCurrency -> ScriptData
+swapFactoryNFTData = fromPlutusData . Plutus.builtinDataToData .Plutus.toBuiltinData
 
-swapFactoryNFTCurrency :: FiniteCurency
-swapFactoryNFTCurrency =  Monetary.mkCurrency swapFactoryTxOutRef [(aswpTokenName, 1)]
+swapFactoryCoin :: FiniteCurrency -> TokenName -> Monetary.Coin a
+swapFactoryCoin cur = Monetary.mkCoin (Monetary.currencySymbol cur)
 
-swapFactoryNFTCurrencySymbol :: CurrencySymbol
-swapFactoryNFTCurrencySymbol = Monetary.currencySymbol swapFactoryNFTCurrency
+swapFactoryValue :: FiniteCurrency -> TokenName -> Value
+swapFactoryValue cur = Monetary.unitValue . swapFactoryCoin cur
 
-swapFactoryNFTData :: ScriptData
-swapFactoryNFTData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData swapFactoryNFTCurrency)
-
-swapFactoryCoin :: Monetary.Coin a
-swapFactoryCoin = Monetary.mkCoin swapFactoryNFTCurrencySymbol aswpTokenName
-
-swapFactoryValue :: Value
-swapFactoryValue = Monetary.unitValue swapFactoryCoin
-
-swapFactoryNFTMintingValidator :: FiniteCurency -> Validator
+swapFactoryNFTMintingValidator :: FiniteCurrency -> Validator
 swapFactoryNFTMintingValidator = Validator . unMintingPolicyScript . Monetary.monetaryPolicy
 
-swapFactoryNFTMintingValidatorAsCBOR :: LB.ByteString
-swapFactoryNFTMintingValidatorAsCBOR = serialise $ swapFactoryNFTMintingValidator swapFactoryNFTCurrency
+swapFactoryNFTMintingValidatorAsCBOR :: FiniteCurrency -> LB.ByteString
+swapFactoryNFTMintingValidatorAsCBOR = serialise . swapFactoryNFTMintingValidator
 
-swapFactoryNFTPlutusMintingScript :: PlutusScript PlutusScriptV1
-swapFactoryNFTPlutusMintingScript = PlutusScriptSerialised . SBS.toShort $ LB.toStrict swapFactoryNFTMintingValidatorAsCBOR
+swapFactoryNFTMintingVScriptShortBs :: FiniteCurrency -> SBS.ShortByteString
+swapFactoryNFTMintingVScriptShortBs = SBS.toShort . LB.toStrict . swapFactoryNFTMintingValidatorAsCBOR
 
-writeSwapFactoryNFTMintingScript :: Haskell.IO ()
-writeSwapFactoryNFTMintingScript = writeScriptToFile "altswap-nft.plutus" swapFactoryNFTPlutusMintingScript swapFactoryNFTData
+swapFactoryNFTPlutusMintingScript :: FiniteCurrency -> PlutusScript PlutusScriptV1
+swapFactoryNFTPlutusMintingScript = PlutusScriptSerialised . SBS.toShort . LB.toStrict . swapFactoryNFTMintingValidatorAsCBOR
+
+writeSwapFactoryNFTMintingScript ::  FiniteCurrency -> Haskell.String -> Haskell.IO ()
+writeSwapFactoryNFTMintingScript c out = writeScriptToFile out (swapFactoryNFTPlutusMintingScript c ) (swapFactoryNFTData c) (swapFactoryNFTMintingVScriptShortBs c)
 
 ----------------------------------------------------------------------------------------
 -- Liquidity Pool Minting Script
@@ -222,29 +216,32 @@ lp = LP.LiquidityPool coinA coinB
 lpToken :: TokenName
 lpToken = LP.lpTicker lp
 
-lpStateCoin :: Monetary.Coin LP.PoolState
-lpStateCoin = OffChain.poolStateCoin swapFactoryInstance
+lpStateCoin :: FiniteCurrency -> Monetary.Coin LP.PoolState
+lpStateCoin = OffChain.poolStateCoin . swapFactoryInstance
 
-lpCoin :: Monetary.Coin LP.Liquidity
-lpCoin =  Monetary.mkCoin (OffChain.liquidityCurrency swapFactoryInstance) $ LP.lpTicker lp
+lpCoin :: FiniteCurrency -> Monetary.Coin LP.Liquidity
+lpCoin cur = Monetary.mkCoin (OffChain.liquidityCurrency $ swapFactoryInstance cur) $ LP.lpTicker lp
 
-lpPolicy :: MintingPolicy
-lpPolicy = OffChain.liquidityPolicy swapFactoryInstance
+lpPolicy ::FiniteCurrency -> MintingPolicy
+lpPolicy = OffChain.liquidityPolicy . swapFactoryInstance
 
-lpMintingValidator :: Validator
-lpMintingValidator = Validator $ unMintingPolicyScript lpPolicy
+lpMintingValidator :: FiniteCurrency -> Validator
+lpMintingValidator = Validator . unMintingPolicyScript . lpPolicy
 
-lpMintingValidatorAsCBOR :: LB.ByteString
-lpMintingValidatorAsCBOR = serialise lpMintingValidator
+lpMintingValidatorAsCBOR :: FiniteCurrency -> LB.ByteString
+lpMintingValidatorAsCBOR = serialise . lpMintingValidator
 
-lpPlutusMintingScript :: PlutusScript PlutusScriptV1
-lpPlutusMintingScript = PlutusScriptSerialised . SBS.toShort $ LB.toStrict lpMintingValidatorAsCBOR
+lpPlutusMintingScriptShortBs :: FiniteCurrency -> SBS.ShortByteString
+lpPlutusMintingScriptShortBs = SBS.toShort . LB.toStrict . lpMintingValidatorAsCBOR
+
+lpPlutusMintingScript :: FiniteCurrency -> PlutusScript PlutusScriptV1
+lpPlutusMintingScript = PlutusScriptSerialised . SBS.toShort . LB.toStrict . lpMintingValidatorAsCBOR
 
 mintLpTokensData :: ScriptData
-mintLpTokensData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData ())
+mintLpTokensData = fromPlutusData . Plutus.builtinDataToData $ Plutus.toBuiltinData ()
 
-writeLpMintingScript :: Haskell.IO ()
-writeLpMintingScript = writeScriptToFile "altswap-lp-create-mint.plutus" lpPlutusMintingScript mintLpTokensData
+writeLpMintingScript :: FiniteCurrency -> Haskell.String -> Haskell.IO ()
+writeLpMintingScript cur out = writeScriptToFile out (lpPlutusMintingScript cur) mintLpTokensData (lpPlutusMintingScriptShortBs cur)
 
 ----------------------------------------------------------------
 -- SWAP Script
@@ -267,35 +264,35 @@ swapCreateRedeemerData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBui
 showSwapRedeemerJSON :: LB.ByteString
 showSwapRedeemerJSON =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema swapCreateRedeemerData
 
-swapFactoryInstance :: Base.AltSwap
-swapFactoryInstance = OffChain.aswp swapFactoryNFTCurrencySymbol
+swapFactoryInstance :: FiniteCurrency -> Base.AltSwap
+swapFactoryInstance = OffChain.aswp . swapFactoryNFTCurrencySymbol
 
-swapInstance :: Scripts.TypedValidator OffChain.AltXChange
-swapInstance = OffChain.aswpInstance swapFactoryInstance
+swapInstance :: FiniteCurrency -> Scripts.TypedValidator OffChain.AltXChange
+swapInstance = OffChain.aswpInstance . swapFactoryInstance
 
-validator :: Plutus.Validator
-validator = OffChain.aswpScript swapFactoryInstance
+validator :: FiniteCurrency -> Plutus.Validator
+validator = OffChain.aswpScript . swapFactoryInstance
 
-script :: Plutus.Script
-script = Plutus.unValidatorScript validator
+script :: FiniteCurrency -> Plutus.Script
+script = Plutus.unValidatorScript . validator
 
-swapTokenScriptShortBs :: SBS.ShortByteString
-swapTokenScriptShortBs = SBS.toShort . LB.toStrict $ serialise script
+swapTokenScriptShortBs :: FiniteCurrency -> SBS.ShortByteString
+swapTokenScriptShortBs = SBS.toShort . LB.toStrict . serialise . script
 
-swapTokenScript :: PlutusScript PlutusScriptV1
-swapTokenScript = PlutusScriptSerialised swapTokenScriptShortBs
+swapTokenScript :: FiniteCurrency -> PlutusScript PlutusScriptV1
+swapTokenScript = PlutusScriptSerialised . swapTokenScriptShortBs
 
-swapScriptData :: ScriptData
-swapScriptData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData swapFactoryInstance)
+swapScriptData :: FiniteCurrency -> ScriptData
+swapScriptData = fromPlutusData . Plutus.builtinDataToData . Plutus.toBuiltinData . swapFactoryInstance
 
-validatorAsCBOR :: LB.ByteString
-validatorAsCBOR = serialise $ script
+validatorAsCBOR :: FiniteCurrency -> LB.ByteString
+validatorAsCBOR = serialise . script
 
-plutusMintingScript :: PlutusScript PlutusScriptV1
-plutusMintingScript = PlutusScriptSerialised . SBS.toShort $ LB.toStrict validatorAsCBOR
+plutusMintingScript :: FiniteCurrency -> PlutusScript PlutusScriptV1
+plutusMintingScript = PlutusScriptSerialised . SBS.toShort . LB.toStrict . validatorAsCBOR
 
-writeSwapScript :: Haskell.IO ()
-writeSwapScript = writeScriptToFile "altswap.plutus" plutusMintingScript swapScriptData
+writeSwapScript :: FiniteCurrency -> Haskell.String -> Haskell.IO ()
+writeSwapScript cur out = writeScriptToFile out (plutusMintingScript cur) (swapScriptData cur) (swapTokenScriptShortBs cur)
 
 ---------------------------------------------------------------------------------------------------------------
 -- Create LP Output(s) Datums
@@ -357,16 +354,12 @@ showAfterCreatePooFactorylDatum =  JSON.encode $ scriptDataToJson ScriptDataJson
 
 ---------------------------------------------------------------------------------------------------------------
 
-writeScriptToFile
-  :: Haskell.String
-  -> PlutusScript PlutusScriptV1
-  -> ScriptData
-  -> Haskell.IO ()
-writeScriptToFile outFile plutusScript scriptData = do
+writeScriptToFile :: Haskell.String -> PlutusScript PlutusScriptV1 -> ScriptData -> SBS.ShortByteString -> Haskell.IO ()
+writeScriptToFile outFile plutusScript scriptData scriptShortBS = do
   case Plutus.defaultCostModelParams of
         Just m ->
           let Alonzo.Data pData = toAlonzoData scriptData
-              (logout, e) = Plutus.evaluateScriptCounting Plutus.Verbose m swapTokenScriptShortBs [pData]
+              (logout, e) = Plutus.evaluateScriptCounting Plutus.Verbose m scriptShortBS [pData]
           in do Haskell.print ("Log output" :: Haskell.String) >> Haskell.print logout
                 case e of
                   Left evalErr -> Haskell.print ("Eval Error" :: Haskell.String) >> Haskell.print evalErr
@@ -381,5 +374,18 @@ writeScriptToFile outFile plutusScript scriptData = do
 main :: Haskell.IO ()
 main = () Haskell.<$ seq
   where
-    writers = [writeSwapFactoryNFTMintingScript, writeLpMintingScript, writeSwapScript]
+    writers = [
+      writeSwapFactoryNFTMintingScript  factoryCurrency "altswap-nft.plutus",
+      writeLpMintingScript              factoryCurrency "altswap-lp-create-mint.plutus",
+      writeSwapScript                   factoryCurrency "altswap.plutus"]
     seq = Haskell.sequence writers
+
+    factoryCurrency :: FiniteCurrency
+    factoryCurrency = Monetary.mkCurrency swapFactoryTxOutRef [(Plutus.TokenName "SWP", 1)]
+
+    -- tokensCurrency :: FiniteCurrency
+    -- tokensCurrency = Monetary.mkCurrency
+
+    tokensTxOutRef      = TxOutRef "fece0e5da9d8b4c1ed4e5831ffc5f04c2e6299083c9c27da271d34772a364367" 0
+    swapFactoryTxOutRef = TxOutRef "e899b80b6e68f36f655e1877733a6391b40b5c9a8f197d0a37b15b6940a3436b" 0
+

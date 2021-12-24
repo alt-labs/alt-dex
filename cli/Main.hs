@@ -53,7 +53,7 @@ import Plutus.V1.Ledger.Tx (TxOutRef (..))
 
 import           AltDex.Contracts.Serialise hiding (main)
 import qualified AltDex.Contracts.Monetary as Cash
-import           AltDex.Contracts.Monetary (FiniteCurency)
+import           AltDex.Contracts.Monetary (FiniteCurrency)
 
 import PlutusTx.Builtins.Internal (BuiltinByteString (BuiltinByteString), encodeUtf8)
 
@@ -123,13 +123,16 @@ main = do
     0 -> showHelp
     _ ->
       case head args of
-        "conn:check"  -> runConnCheck conn
-        "sync:status" -> showSyncStatus cardanoEnvironment
-        "gens:mint"   -> do
+        "conn:check"    -> runConnCheck conn
+        "sync:status"   -> showSyncStatus cardanoEnvironment
+        "gens:mint"     -> do
           putStrLn $ "TxOutRef: " ++ show (parseTxOutRef firstArg)
-          runExportMintingScript (parseTxOutRef firstArg)  "altswap-tokens.plutus"
-        "mint"        -> putStrLn "MintEm' all"
-        _             -> showHelp
+          runExportMintingScript (parseTxOutRef firstArg) "altswap-tokens.plutus"
+        "gens:factory"  -> do
+            putStrLn "Generating AltSwap factory"
+            runExportAltswapFactoryScripts (parseTxOutRef firstArg) "altswap-nft.plutus" "altswap.plutus"
+        "mint"          -> putStrLn "MintEm' all"
+        _               -> showHelp
 
 parseTxOutRef :: String -> Plut.TxOutRef
 parseTxOutRef s = TxOutRef (txInHash s) (txInIdx s)
@@ -202,20 +205,40 @@ instance FromField TokenName where
 
 instance DefaultOrdered TokenName
 
-runExportMintingScript :: TxOutRef -> String -> IO ()
-runExportMintingScript minterTxOutRef outFilepath = do
+readMintingTokens :: TxOutRef -> IO (Either String FiniteCurrency)
+readMintingTokens minterTxOutRef = do
   s <- L.readFile "sample/tokens.csv"
 
   case decodedTokens s of
-    (Left s)       -> putStr $ "ERROR: " ++ s
+    (Left err)       ->
+      pure $ Left $ "ERROR: " ++ err
     (Right tokens) -> do
       let currency = cur (toList tokens)
-      Prelude.print currency
-      writeTokensMintingScript' currency outFilepath
+      pure $ Right currency
 
   where
-    cur :: [(TokenName, Integer)] -> FiniteCurency
+    cur :: [(TokenName, Integer)] -> FiniteCurrency
     cur = Cash.mkCurrency minterTxOutRef
 
     decodedTokens :: L.ByteString -> Either String (Vector (TokenName, Integer))
     decodedTokens s = decode NoHeader s
+
+runExportMintingScript :: TxOutRef -> String -> IO ()
+runExportMintingScript minterTxOutRef outFilepath = do
+  decodedTokens <- readMintingTokens minterTxOutRef
+  case decodedTokens of
+    (Left s)       -> putStr $ "ERROR: " ++ s
+    (Right currency) -> do
+      -- let currency = cur (toList tokens)
+      -- Prelude.print currency
+      writeTokensMintingScript' currency outFilepath
+
+runExportAltswapFactoryScripts :: TxOutRef -> String -> String -> IO ()
+runExportAltswapFactoryScripts swapFactoryTxOutRef nftPolicyOutFilepath swapScriptOutFilepath = do
+
+  putStrLn "Hi mate!"
+
+  where
+    cur :: FiniteCurrency
+    cur = Cash.mkCurrency swapFactoryTxOutRef [(TokenName "SWP", 1)]
+

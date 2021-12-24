@@ -18,7 +18,7 @@
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
 module AltDex.Contracts.Monetary(
-      LimitedSupplyCurrency(..), FiniteCurency(..)
+      LimitedSupplyCurrency(..), FiniteCurrency(..)
     , SwapCoin
     , CurrencySchema
     , CurrencyError(..)
@@ -156,7 +156,7 @@ data LimitedSupplyCurrency = LimitedSupplyCurrency
 PlutusTx.makeLift ''LimitedSupplyCurrency
 PlutusTx.unstableMakeIsData ''LimitedSupplyCurrency
 
-type FiniteCurency = LimitedSupplyCurrency
+type FiniteCurrency = LimitedSupplyCurrency
 
 {-# INLINABLE validate #-}
 validate :: LimitedSupplyCurrency -> () -> V.ScriptContext -> Bool
