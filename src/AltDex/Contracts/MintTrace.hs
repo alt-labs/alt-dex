@@ -98,8 +98,8 @@ wallets = Prelude.take 1 knownWallets
 
 tokenAmounts :: [(TokenName, Integer)]
 tokenAmounts = [
-  (S.zltTokenName, 1000000),
-  (S.dktTokenName, 1000000)]
+  (TokenName "ZLT", 1000000),
+  (TokenName "DKT", 1000000)]
 
 main :: IO ()
 main =

@@ -20,9 +20,8 @@
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
 
 module AltDex.Contracts.Serialise(
-      zltTokenName, dktTokenName,
       tokensMinterTxOutRef, tokensCurrencySymbol,
-      writeTokensMintingScript, showMeTehDatum, tokensCurrency,
+      writeTokensMintingScript, writeTokensMintingScript', showMeTehDatum, tokensCurrency,
       tokensMintingScript,
       tokensMintingValidatorAsCBOR,
       swapFactoryCoin, swapFactoryTxOutRef,
@@ -100,28 +99,17 @@ import qualified Plutus.V1.Ledger.Api           as Plutus
 
 import qualified AltDex.Contracts.Base          as Base
 import qualified AltDex.Contracts.LiquidityPool as LP
+
 import qualified AltDex.Contracts.Monetary      as Monetary
+import           AltDex.Contracts.Monetary      (FiniteCurency)
+
 import qualified AltDex.Contracts.OffChain      as OffChain
 import qualified AltDex.Contracts.Swap          as Swap
 import qualified Data.ByteString.Lazy.Char8     as LB
 
-type FiniteCurency = Monetary.LimitedSupplyCurrency
-
 -------------------------------------------------------------------------------
 -- SWAP EXCHANGE TOKENS MINTING SCRIPT
 -------------------------------------------------------------------------------
-ztnTokenName :: TokenName
-ztnTokenName = "ZTN"
-
-zltTokenName :: TokenName
-zltTokenName = "ZLT"
-
-dktTokenName :: TokenName
-dktTokenName = "DKT"
-
-bonTokenName :: TokenName
-bonTokenName = "BON"
-
 tokenOneName :: TokenName
 tokenOneName = "MAC"
 
@@ -130,14 +118,6 @@ tokenTwoName = "SRK"
 
 tokensMinterTxOutRef :: TxOutRef
 tokensMinterTxOutRef = TxOutRef "86616b7707fc9e08ff76e54b5e728933f59c5f16b826174f45bdabbc02ad0de9" 0
-
--- tokensCurrency :: FiniteCurency
--- tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
---     where
---         tokens :: [(TokenName, Integer)]
---         tokens = [(ztnTokenName, amt), (zltTokenName, amt), (dktTokenName, amt), (bonTokenName, amt)]
-
---         amt = 1_000_000
 
 tokensCurrency :: FiniteCurency
 tokensCurrency = Monetary.mkCurrency tokensMinterTxOutRef tokens
@@ -152,6 +132,9 @@ tokensCurrencySymbol = Monetary.currencySymbol tokensCurrency
 
 mintTokensData :: ScriptData
 mintTokensData = fromPlutusData $ Plutus.builtinDataToData (Plutus.toBuiltinData tokensCurrency)
+
+mintTokensData' :: FiniteCurency -> ScriptData
+mintTokensData' = fromPlutusData . Plutus.builtinDataToData . Plutus.toBuiltinData
 
 showMeTehDatum :: LB.ByteString
 showMeTehDatum =  JSON.encode $ scriptDataToJson ScriptDataJsonDetailedSchema mintTokensData
@@ -168,8 +151,18 @@ tokensMintingValidatorAsCBOR = serialise $ tokensMintingValidator tokensCurrency
 tokensPlutusMintingScript :: PlutusScript PlutusScriptV1
 tokensPlutusMintingScript = PlutusScriptSerialised . SBS.toShort $ LB.toStrict tokensMintingValidatorAsCBOR
 
+tokensMintingValidatorAsCBOR' :: FiniteCurency -> LB.ByteString
+tokensMintingValidatorAsCBOR' = serialise . tokensMintingValidator
+
+tokensPlutusMintingScript' :: FiniteCurency -> PlutusScript PlutusScriptV1
+tokensPlutusMintingScript' = PlutusScriptSerialised . SBS.toShort . LB.toStrict . tokensMintingValidatorAsCBOR'
+
 writeTokensMintingScript :: Haskell.IO ()
 writeTokensMintingScript = writeScriptToFile "altswap-tokens.plutus" tokensPlutusMintingScript mintTokensData
+
+writeTokensMintingScript' :: FiniteCurency -> Haskell.String -> Haskell.IO ()
+writeTokensMintingScript' cur outFilepath = do
+  writeScriptToFile outFilepath (tokensPlutusMintingScript' cur) (mintTokensData' cur)
 
 -------------------------------------------------------------------------------
 -- SWAP NFT MINTING SCRIPT

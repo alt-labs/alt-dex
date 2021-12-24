@@ -157,16 +157,6 @@ checkSwap oldA' oldB' newA' newB' = True
 --       h4   = sha2_256 $ unCurrencySymbol x2
 --       hash = sha2_256 $ h1 <> h2 <> h3 <> h4
 
-toBS :: Haskell.String -> BuiltinString
-toBS =
-    BI.decodeUtf8
-    . BI.unsafeDataAsB
-    . PlutusTx.dataToBuiltinData
-    . PlutusTx.B
-    . Data.String.encodeUtf8
-
-    . TE.pack
-
 rewTokenName :: TokenName
 rewTokenName = TokenName "REW"
 

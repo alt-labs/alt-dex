@@ -314,5 +314,5 @@ executable adex
   ghc-options:          -threaded -rtsopts "-with-rtsopts=-T"
 
   build-depends: alt-dex -any,
-                 foldl, flat, streaming, directory, filepath,
+                 foldl, flat, streaming, directory, filepath, vector, cassava, split,
                  cardano-cli
